@@ -136,7 +136,18 @@ export async function bookAction(
     };
   }
 
-  await createBooking({ serviceId, staffId, date, time, customerName, customerPhone, note });
+  try {
+    await createBooking({ serviceId, staffId, date, time, customerName, customerPhone, note });
+  } catch (e) {
+    // Race safety net: the DB unique index rejected a slot taken microseconds ago.
+    if ((e as Error).message === "SLOT_TAKEN") {
+      return {
+        status: "error",
+        message: "Уучлаарай, энэ цаг дөнгөж захиалагдлаа. Өөр цаг сонгоно уу.",
+      };
+    }
+    throw e;
+  }
   revalidatePath("/admin/bookings");
 
   // Notify admin(s) and the assigned staff member by email (no-ops if unset).

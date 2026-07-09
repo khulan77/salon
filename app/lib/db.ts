@@ -237,7 +237,12 @@ export async function createBooking(
     status,
     created_at: createdAt,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Unique-index violation = the slot was taken between the availability
+    // check and this insert. Surface a typed error the caller can handle.
+    if ((error as { code?: string }).code === "23505") throw new Error("SLOT_TAKEN");
+    throw new Error(error.message);
+  }
   return { ...input, id, status, createdAt };
 }
 
