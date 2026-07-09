@@ -1,6 +1,7 @@
 import { getServices, getStaff } from "@/app/lib/db";
 import StaffCard from "@/app/components/staff-card";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Мастерууд — Lumière" };
 
 export default async function StaffPage() {

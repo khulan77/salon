@@ -3,6 +3,8 @@ import { getReviews, getServices, getStaff } from "@/app/lib/db";
 import ServiceCard from "@/app/components/service-card";
 import StaffCard from "@/app/components/staff-card";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const [services, staff, reviews] = await Promise.all([
     getServices({ activeOnly: true }),

@@ -1,6 +1,7 @@
 import { getServices } from "@/app/lib/db";
 import ServiceCard from "@/app/components/service-card";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Үйлчилгээ — Lumière" };
 
 export default async function ServicesPage() {

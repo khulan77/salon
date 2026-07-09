@@ -1,26 +1,23 @@
-import { promises as fs } from "fs";
-import path from "path";
 import { randomUUID } from "crypto";
-import type { Booking, Database, Review, Service, Settings, Staff } from "./types";
+import { supabaseService } from "./supabase/service";
+import type { Booking, Review, Service, Settings, Staff } from "./types";
 
 const DEFAULT_SETTINGS: Settings = {
   openTime: "10:00",
   closeTime: "20:00",
   slotMinutes: 30,
-  closedDays: [], // open every day by default
+  closedDays: [],
 };
 
 function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return (h || 0) * 60 + (m || 0);
 }
-
 function toHHMM(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
-
 function localTodayISO(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
@@ -28,371 +25,249 @@ function localTodayISO(): string {
   ).padStart(2, "0")}`;
 }
 
-// JSON-file store. The file is read/written via `fs` at request time (never
-// imported into the module graph), so writes don't trigger Fast Refresh.
-// DATA_DIR can point at a mounted persistent disk (e.g. on Render) via env.
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
-const DB_PATH = path.join(DATA_DIR, "db.json");
+const db = () => supabaseService();
 
-const seed: Database = {
-  services: [
-    {
-      id: "svc-haircut",
-      name: "Үс засалт & загвар",
-      description:
-        "Мэргэжлийн үс засалт, угаалга болон загварчлал. Таны царайд тохирсон загвар.",
-      category: "Үс",
-      durationMin: 60,
-      price: 45000,
-      emoji: "✂️",
-      active: true,
-    },
-    {
-      id: "svc-color",
-      name: "Үс будалт",
-      description: "Чанартай будгаар үс будах, өнгө сэргээх, балаяж, омбре.",
-      category: "Үс",
-      durationMin: 120,
-      price: 120000,
-      emoji: "🎨",
-      active: true,
-    },
-    {
-      id: "svc-manicure",
-      name: "Гар засал (Manicure)",
-      description: "Хумсны арчилгаа, гель лак, дизайн. Урт удаан барих чанар.",
-      category: "Хумс",
-      durationMin: 90,
-      price: 55000,
-      emoji: "💅",
-      active: true,
-    },
-    {
-      id: "svc-facial",
-      name: "Нүүрний арчилгаа",
-      description: "Гүн цэвэрлэгээ, чийгшүүлэлт болон тайвшруулах массаж.",
-      category: "Арьс",
-      durationMin: 75,
-      price: 80000,
-      emoji: "🧖‍♀️",
-      active: true,
-    },
-    {
-      id: "svc-makeup",
-      name: "Нүүр будалт",
-      description: "Өдөр тутмын болон онцгой үйл явдлын мэргэжлийн нүүр будалт.",
-      category: "Гоо сайхан",
-      durationMin: 60,
-      price: 70000,
-      emoji: "💄",
-      active: true,
-    },
-    {
-      id: "svc-lash",
-      name: "Сормуус суулгац",
-      description: "Байгалийн болон өтгөн сормуусны суулгац, засвар.",
-      category: "Гоо сайхан",
-      durationMin: 90,
-      price: 90000,
-      emoji: "👁️",
-      active: true,
-    },
-  ],
-  staff: [
-    {
-      id: "stf-saraa",
-      name: "Сараа",
-      title: "Ахлах стилист",
-      bio: "10 гаруй жилийн туршлагатай, олон улсын сертификаттай үсчин.",
-      serviceIds: ["svc-haircut", "svc-color"],
-      emoji: "💇‍♀️",
-      active: true,
-    },
-    {
-      id: "stf-bolor",
-      name: "Болор",
-      title: "Хумсны мастер",
-      bio: "Nail art-ын мэргэжилтэн. Нарийн дизайн, цэвэрхэн ажил.",
-      serviceIds: ["svc-manicure"],
-      emoji: "💅",
-      active: true,
-    },
-    {
-      id: "stf-nomin",
-      name: "Номин",
-      title: "Гоо сайхны мэргэжилтэн",
-      bio: "Арьс арчилгаа, нүүр будалт, сормуусны чиглэлээр мэргэшсэн.",
-      serviceIds: ["svc-facial", "svc-makeup", "svc-lash"],
-      emoji: "🌸",
-      active: true,
-    },
-  ],
-  bookings: [],
-  reviews: [
-    {
-      id: "rev-1",
-      customerName: "Оюунаа",
-      rating: 5,
-      text: "Маш тансаг үйлчилгээ. Сараа гуайн үс засалт үнэхээр гоё болсон, дахин очно!",
-      active: true,
-      createdAt: "2026-05-02T10:00:00.000Z",
-    },
-    {
-      id: "rev-2",
-      customerName: "Тэмүүлэн",
-      rating: 5,
-      text: "Онлайн цаг захиалга нь маш хялбар. Цаг барьдаг, цэвэрхэн орчин.",
-      active: true,
-      createdAt: "2026-05-14T10:00:00.000Z",
-    },
-    {
-      id: "rev-3",
-      customerName: "Сарантуяа",
-      rating: 4,
-      text: "Номин маань нүүр будалтыг гоё хийдэг. Найзууддаа санал болгосон.",
-      active: true,
-      createdAt: "2026-06-01T10:00:00.000Z",
-    },
-  ],
-  settings: DEFAULT_SETTINGS,
-};
+/* ---------------- Mappers (snake_case row <-> camelCase type) ---------------- */
 
-async function ensureDb(): Promise<void> {
-  try {
-    await fs.access(DB_PATH);
-  } catch {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.writeFile(DB_PATH, JSON.stringify(seed, null, 2), "utf-8");
-  }
-}
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const serviceFromRow = (r: any): Service => ({
+  id: r.id,
+  name: r.name,
+  description: r.description ?? "",
+  category: r.category ?? "Бусад",
+  durationMin: r.duration_min ?? 60,
+  price: r.price ?? 0,
+  emoji: r.emoji ?? "✨",
+  active: r.active ?? true,
+});
+const serviceToRow = (s: Partial<Service>) => ({
+  ...(s.name !== undefined && { name: s.name }),
+  ...(s.description !== undefined && { description: s.description }),
+  ...(s.category !== undefined && { category: s.category }),
+  ...(s.durationMin !== undefined && { duration_min: s.durationMin }),
+  ...(s.price !== undefined && { price: s.price }),
+  ...(s.emoji !== undefined && { emoji: s.emoji }),
+  ...(s.active !== undefined && { active: s.active }),
+});
 
-async function readDb(): Promise<Database> {
-  await ensureDb();
-  const raw = await fs.readFile(DB_PATH, "utf-8");
-  const db = JSON.parse(raw) as Database;
-  // Defensive defaults in case the file predates a field.
-  db.services ??= [];
-  db.staff ??= [];
-  db.bookings ??= [];
-  db.reviews ??= [];
-  db.settings = { ...DEFAULT_SETTINGS, ...(db.settings ?? {}) };
-  return db;
-}
+const staffFromRow = (r: any): Staff => ({
+  id: r.id,
+  name: r.name,
+  title: r.title ?? "",
+  bio: r.bio ?? "",
+  serviceIds: r.service_ids ?? [],
+  emoji: r.emoji ?? "💇‍♀️",
+  imageUrl: r.image_url ?? undefined,
+  email: r.email ?? undefined,
+  active: r.active ?? true,
+});
+const staffToRow = (s: Partial<Staff>) => ({
+  ...(s.name !== undefined && { name: s.name }),
+  ...(s.title !== undefined && { title: s.title }),
+  ...(s.bio !== undefined && { bio: s.bio }),
+  ...(s.serviceIds !== undefined && { service_ids: s.serviceIds }),
+  ...(s.emoji !== undefined && { emoji: s.emoji }),
+  ...(s.imageUrl !== undefined && { image_url: s.imageUrl ?? null }),
+  ...(s.email !== undefined && { email: s.email ?? null }),
+  ...(s.active !== undefined && { active: s.active }),
+});
 
-async function writeDb(db: Database): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(DB_PATH, JSON.stringify(db, null, 2), "utf-8");
+const bookingFromRow = (r: any): Booking => ({
+  id: r.id,
+  serviceId: r.service_id,
+  staffId: r.staff_id,
+  date: r.date,
+  time: r.time,
+  customerName: r.customer_name,
+  customerPhone: r.customer_phone,
+  note: r.note ?? "",
+  status: r.status,
+  createdAt: r.created_at,
+});
+
+const reviewFromRow = (r: any): Review => ({
+  id: r.id,
+  customerName: r.customer_name,
+  rating: r.rating ?? 5,
+  text: r.text ?? "",
+  active: r.active ?? true,
+  createdAt: r.created_at,
+});
+const reviewToRow = (r: Partial<Review>) => ({
+  ...(r.customerName !== undefined && { customer_name: r.customerName }),
+  ...(r.rating !== undefined && { rating: r.rating }),
+  ...(r.text !== undefined && { text: r.text }),
+  ...(r.active !== undefined && { active: r.active }),
+});
+
+const settingsFromRow = (r: any): Settings => ({
+  openTime: r.open_time ?? DEFAULT_SETTINGS.openTime,
+  closeTime: r.close_time ?? DEFAULT_SETTINGS.closeTime,
+  slotMinutes: r.slot_minutes ?? DEFAULT_SETTINGS.slotMinutes,
+  closedDays: r.closed_days ?? [],
+});
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+function must<T>(data: T | null, error: { message: string } | null): T {
+  if (error) throw new Error(error.message);
+  return data as T;
 }
 
 /* ---------------- Services ---------------- */
 
 export async function getServices(opts?: { activeOnly?: boolean }): Promise<Service[]> {
-  const db = await readDb();
-  const list = opts?.activeOnly ? db.services.filter((s) => s.active) : db.services;
-  return list;
+  let q = db().from("services").select("*").order("category").order("price");
+  if (opts?.activeOnly) q = q.eq("active", true);
+  const { data, error } = await q;
+  return must(data, error).map(serviceFromRow);
 }
 
 export async function getService(id: string): Promise<Service | undefined> {
-  const db = await readDb();
-  return db.services.find((s) => s.id === id);
+  const { data } = await db().from("services").select("*").eq("id", id).maybeSingle();
+  return data ? serviceFromRow(data) : undefined;
 }
 
 export async function createService(input: Omit<Service, "id">): Promise<Service> {
-  const db = await readDb();
-  const svc: Service = { ...input, id: `svc-${randomUUID().slice(0, 8)}` };
-  db.services.push(svc);
-  await writeDb(db);
-  return svc;
+  const id = `svc-${randomUUID().slice(0, 8)}`;
+  const { error } = await db().from("services").insert({ id, ...serviceToRow(input) });
+  if (error) throw new Error(error.message);
+  return { ...input, id };
 }
 
 export async function updateService(
   id: string,
   patch: Partial<Omit<Service, "id">>,
 ): Promise<void> {
-  const db = await readDb();
-  const svc = db.services.find((s) => s.id === id);
-  if (!svc) return;
-  Object.assign(svc, patch);
-  await writeDb(db);
+  const { error } = await db().from("services").update(serviceToRow(patch)).eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteService(id: string): Promise<void> {
-  const db = await readDb();
-  db.services = db.services.filter((s) => s.id !== id);
-  await writeDb(db);
+  const { error } = await db().from("services").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 /* ---------------- Staff ---------------- */
 
 export async function getStaff(opts?: { activeOnly?: boolean }): Promise<Staff[]> {
-  const db = await readDb();
-  return opts?.activeOnly ? db.staff.filter((s) => s.active) : db.staff;
+  let q = db().from("staff").select("*").order("name");
+  if (opts?.activeOnly) q = q.eq("active", true);
+  const { data, error } = await q;
+  return must(data, error).map(staffFromRow);
 }
 
 export async function getStaffMember(id: string): Promise<Staff | undefined> {
-  const db = await readDb();
-  return db.staff.find((s) => s.id === id);
+  const { data } = await db().from("staff").select("*").eq("id", id).maybeSingle();
+  return data ? staffFromRow(data) : undefined;
 }
 
 export async function getStaffByEmail(email: string): Promise<Staff | undefined> {
-  const db = await readDb();
-  const lower = email.toLowerCase();
-  return db.staff.find((s) => s.email && s.email.toLowerCase() === lower);
+  const { data } = await db()
+    .from("staff")
+    .select("*")
+    .ilike("email", email)
+    .maybeSingle();
+  return data ? staffFromRow(data) : undefined;
 }
 
 export async function getStaffForService(serviceId: string): Promise<Staff[]> {
-  const db = await readDb();
-  return db.staff.filter(
-    (s) => s.active && (s.serviceIds.length === 0 || s.serviceIds.includes(serviceId)),
-  );
+  const all = await getStaff({ activeOnly: true });
+  return all.filter((s) => s.serviceIds.length === 0 || s.serviceIds.includes(serviceId));
 }
 
 export async function createStaff(input: Omit<Staff, "id">): Promise<Staff> {
-  const db = await readDb();
-  const member: Staff = { ...input, id: `stf-${randomUUID().slice(0, 8)}` };
-  db.staff.push(member);
-  await writeDb(db);
-  return member;
+  const id = `stf-${randomUUID().slice(0, 8)}`;
+  const { error } = await db().from("staff").insert({ id, ...staffToRow(input) });
+  if (error) throw new Error(error.message);
+  return { ...input, id };
 }
 
 export async function updateStaff(
   id: string,
   patch: Partial<Omit<Staff, "id">>,
 ): Promise<void> {
-  const db = await readDb();
-  const member = db.staff.find((s) => s.id === id);
-  if (!member) return;
-  Object.assign(member, patch);
-  await writeDb(db);
+  const { error } = await db().from("staff").update(staffToRow(patch)).eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteStaff(id: string): Promise<void> {
-  const db = await readDb();
-  db.staff = db.staff.filter((s) => s.id !== id);
-  await writeDb(db);
+  const { error } = await db().from("staff").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 /* ---------------- Bookings ---------------- */
 
 export async function getBookings(): Promise<Booking[]> {
-  const db = await readDb();
-  return [...db.bookings].sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
+  const { data, error } = await db()
+    .from("bookings")
+    .select("*")
+    .order("date", { ascending: false })
+    .order("time", { ascending: false });
+  return must(data, error).map(bookingFromRow);
+}
+
+export async function getBooking(id: string): Promise<Booking | undefined> {
+  const { data } = await db().from("bookings").select("*").eq("id", id).maybeSingle();
+  return data ? bookingFromRow(data) : undefined;
+}
+
+export async function countPendingBookings(): Promise<number> {
+  const { count } = await db()
+    .from("bookings")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "pending");
+  return count ?? 0;
 }
 
 export async function createBooking(
   input: Omit<Booking, "id" | "createdAt" | "status"> & { status?: Booking["status"] },
 ): Promise<Booking> {
-  const db = await readDb();
-  const booking: Booking = {
-    ...input,
-    id: `bkg-${randomUUID().slice(0, 8)}`,
-    status: input.status ?? "pending",
-    createdAt: new Date().toISOString(),
-  };
-  db.bookings.push(booking);
-  await writeDb(db);
-  return booking;
-}
-
-export async function getBooking(id: string): Promise<Booking | undefined> {
-  const db = await readDb();
-  return db.bookings.find((b) => b.id === id);
-}
-
-export async function countPendingBookings(): Promise<number> {
-  const db = await readDb();
-  return db.bookings.filter((b) => b.status === "pending").length;
+  const id = `bkg-${randomUUID().slice(0, 8)}`;
+  const status = input.status ?? "pending";
+  const createdAt = new Date().toISOString();
+  const { error } = await db().from("bookings").insert({
+    id,
+    service_id: input.serviceId,
+    staff_id: input.staffId,
+    date: input.date,
+    time: input.time,
+    customer_name: input.customerName,
+    customer_phone: input.customerPhone,
+    note: input.note,
+    status,
+    created_at: createdAt,
+  });
+  if (error) throw new Error(error.message);
+  return { ...input, id, status, createdAt };
 }
 
 export async function updateBookingStatus(
   id: string,
   status: Booking["status"],
 ): Promise<void> {
-  const db = await readDb();
-  const booking = db.bookings.find((b) => b.id === id);
-  if (!booking) return;
-  booking.status = status;
-  await writeDb(db);
+  const { error } = await db().from("bookings").update({ status }).eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteBooking(id: string): Promise<void> {
-  const db = await readDb();
-  db.bookings = db.bookings.filter((b) => b.id !== id);
-  await writeDb(db);
-}
-
-/* ---------------- Reviews ---------------- */
-
-export async function getReviews(opts?: { activeOnly?: boolean }): Promise<Review[]> {
-  const db = await readDb();
-  const list = opts?.activeOnly ? db.reviews.filter((r) => r.active) : db.reviews;
-  return [...list].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-}
-
-export async function createReview(
-  input: Omit<Review, "id" | "createdAt">,
-): Promise<Review> {
-  const db = await readDb();
-  const review: Review = {
-    ...input,
-    id: `rev-${randomUUID().slice(0, 8)}`,
-    createdAt: new Date().toISOString(),
-  };
-  db.reviews.push(review);
-  await writeDb(db);
-  return review;
-}
-
-export async function updateReview(
-  id: string,
-  patch: Partial<Omit<Review, "id" | "createdAt">>,
-): Promise<void> {
-  const db = await readDb();
-  const review = db.reviews.find((r) => r.id === id);
-  if (!review) return;
-  Object.assign(review, patch);
-  await writeDb(db);
-}
-
-export async function deleteReview(id: string): Promise<void> {
-  const db = await readDb();
-  db.reviews = db.reviews.filter((r) => r.id !== id);
-  await writeDb(db);
-}
-
-/* ---------------- Settings ---------------- */
-
-export async function getSettings(): Promise<Settings> {
-  const db = await readDb();
-  return db.settings;
-}
-
-export async function updateSettings(patch: Partial<Settings>): Promise<void> {
-  const db = await readDb();
-  db.settings = { ...db.settings, ...patch };
-  await writeDb(db);
+  const { error } = await db().from("bookings").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 /* ---------------- Availability ---------------- */
 
-/**
- * Available start times (HH:mm) for a service with a given staff on a date.
- * Respects working hours, closed weekdays, already-booked intervals (accounting
- * for each booking's service duration), and — for today — hides past times.
- */
 export async function getAvailableSlots(
   serviceId: string,
   staffId: string,
   date: string,
 ): Promise<string[]> {
-  const db = await readDb();
-  const settings = db.settings;
+  const settings = await getSettings();
 
   const day = new Date(date + "T00:00:00");
   if (Number.isNaN(day.getTime())) return [];
   if (settings.closedDays.includes(day.getDay())) return [];
 
-  const service = db.services.find((s) => s.id === serviceId);
+  const service = await getService(serviceId);
   const duration = service?.durationMin ?? settings.slotMinutes;
 
   const open = toMinutes(settings.openTime);
@@ -400,13 +275,19 @@ export async function getAvailableSlots(
   const step = Math.max(5, settings.slotMinutes);
 
   // Existing bookings for this staff/date as [start, end) minute intervals.
-  const booked = db.bookings
-    .filter((b) => b.staffId === staffId && b.date === date && b.status !== "cancelled")
-    .map((b) => {
-      const start = toMinutes(b.time);
-      const svc = db.services.find((s) => s.id === b.serviceId);
-      return [start, start + (svc?.durationMin ?? step)] as const;
-    });
+  const { data: rows } = await db()
+    .from("bookings")
+    .select("time, service_id, status")
+    .eq("staff_id", staffId)
+    .eq("date", date)
+    .neq("status", "cancelled");
+
+  const services = await getServices();
+  const booked = (rows ?? []).map((b) => {
+    const start = toMinutes(b.time);
+    const svc = services.find((s) => s.id === b.service_id);
+    return [start, start + (svc?.durationMin ?? step)] as const;
+  });
 
   const isToday = date === localTodayISO();
   const now = new Date();
@@ -414,9 +295,63 @@ export async function getAvailableSlots(
 
   const slots: string[] = [];
   for (let t = open; t + duration <= close; t += step) {
-    if (isToday && t <= nowMin) continue; // no past times today
+    if (isToday && t <= nowMin) continue;
     const overlaps = booked.some(([bs, be]) => t < be && t + duration > bs);
     if (!overlaps) slots.push(toHHMM(t));
   }
   return slots;
+}
+
+/* ---------------- Reviews ---------------- */
+
+export async function getReviews(opts?: { activeOnly?: boolean }): Promise<Review[]> {
+  let q = db().from("reviews").select("*").order("created_at", { ascending: false });
+  if (opts?.activeOnly) q = q.eq("active", true);
+  const { data, error } = await q;
+  return must(data, error).map(reviewFromRow);
+}
+
+export async function createReview(
+  input: Omit<Review, "id" | "createdAt">,
+): Promise<Review> {
+  const id = `rev-${randomUUID().slice(0, 8)}`;
+  const createdAt = new Date().toISOString();
+  const { error } = await db()
+    .from("reviews")
+    .insert({ id, created_at: createdAt, ...reviewToRow(input) });
+  if (error) throw new Error(error.message);
+  return { ...input, id, createdAt };
+}
+
+export async function updateReview(
+  id: string,
+  patch: Partial<Omit<Review, "id" | "createdAt">>,
+): Promise<void> {
+  const { error } = await db().from("reviews").update(reviewToRow(patch)).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteReview(id: string): Promise<void> {
+  const { error } = await db().from("reviews").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/* ---------------- Settings ---------------- */
+
+export async function getSettings(): Promise<Settings> {
+  const { data } = await db().from("settings").select("*").eq("id", 1).maybeSingle();
+  return data ? settingsFromRow(data) : DEFAULT_SETTINGS;
+}
+
+export async function updateSettings(patch: Partial<Settings>): Promise<void> {
+  const current = await getSettings();
+  const next = { ...current, ...patch };
+  const { error } = await db().from("settings").upsert({
+    id: 1,
+    open_time: next.openTime,
+    close_time: next.closeTime,
+    slot_minutes: next.slotMinutes,
+    closed_days: next.closedDays,
+  });
+  if (error) throw new Error(error.message);
 }
