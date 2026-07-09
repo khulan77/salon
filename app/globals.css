@@ -1,26 +1,72 @@
 @import "tailwindcss";
 
+/*
+  Lumière — luxurious soft beige/rose design system.
+  Warm cream backgrounds, dusty-rose accent, espresso ink.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf6f1; /* warm cream */
+  --surface: #ffffff;
+  --surface-2: #f4ece4; /* sand */
+  --foreground: #2e2723; /* espresso */
+  --muted: #8a7d72; /* taupe */
+  --border: #e8ddd2;
+  --primary: #b76e79; /* dusty rose */
+  --primary-hover: #a15964;
+  --primary-soft: #f3e3e3; /* rose tint */
+  --accent: #c9a24b; /* soft gold */
+  --ring: #d9a7ad;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-ring: var(--ring);
+
+  --font-serif: var(--font-playfair);
+  --font-sans: var(--font-inter);
+
+  --radius-xl2: 1.25rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
+
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-serif), Georgia, serif;
+}
+
+/* Subtle warm gradient used across hero/section backdrops */
+.bg-warm {
+  background:
+    radial-gradient(1200px 500px at 80% -10%, rgba(183, 110, 121, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 0% 10%, rgba(201, 162, 75, 0.08), transparent 55%),
+    var(--background);
+}
+
+/* Thin scrollbar for a tidy feel */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
