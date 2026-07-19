@@ -1,7 +1,7 @@
 import { getBookings, getServices, getStaff } from "@/app/lib/db";
-import { formatDate, formatPrice } from "@/app/lib/format";
+import { effectivePrice, formatDate, formatPrice } from "@/app/lib/format";
 import { deleteBookingAction, setBookingStatusAction } from "@/app/lib/actions";
-import { StatusBadge } from "./status";
+import { StatusBadge } from "@/app/components/status-badge";
 import type { BookingStatus } from "@/app/lib/types";
 
 export const metadata = { title: "Захиалгууд — Lumière Admin" };
@@ -56,13 +56,21 @@ export default async function AdminBookingsPage() {
                       {formatDate(b.date)}
                     </div>
                     <div className="text-muted">⏰ {b.time}</div>
+                    {b.code && (
+                      <div
+                        className="mt-1 font-mono text-xs tracking-[0.15em] text-muted"
+                        title="Үйлчлүүлэгчид өгсөн захиалгын код"
+                      >
+                        {b.code}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
                   <Info label="Үйлчилгээ" value={svc ? `${svc.emoji} ${svc.name}` : "—"} />
                   <Info label="Мастер" value={stf ? `${stf.emoji} ${stf.name}` : "—"} />
-                  <Info label="Төлбөр" value={svc ? formatPrice(svc.price) : "—"} />
+                  <Info label="Төлбөр" value={svc ? formatPrice(effectivePrice(svc)) : "—"} />
                 </div>
 
                 {b.note && (

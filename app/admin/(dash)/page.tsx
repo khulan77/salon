@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getBookings, getServices, getStaff } from "@/app/lib/db";
-import { formatDate, formatPrice } from "@/app/lib/format";
-import { StatusBadge } from "./bookings/status";
+import { effectivePrice, formatDate, formatPrice } from "@/app/lib/format";
+import { StatusBadge } from "@/app/components/status-badge";
 
 export const metadata = { title: "Хянах самбар — Lumière Admin" };
 
@@ -17,7 +17,7 @@ export default async function AdminDashboard() {
     .filter((b) => b.status === "done" || b.status === "confirmed")
     .reduce((sum, b) => {
       const svc = services.find((s) => s.id === b.serviceId);
-      return sum + (svc?.price ?? 0);
+      return sum + (svc ? effectivePrice(svc) : 0);
     }, 0);
 
   const stats = [

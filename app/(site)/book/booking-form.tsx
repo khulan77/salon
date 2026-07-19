@@ -4,7 +4,14 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Service, Staff } from "@/app/lib/types";
 import { bookAction, getAvailableSlotsAction, type BookState } from "@/app/lib/actions";
-import { formatDate, formatDuration, formatPrice } from "@/app/lib/format";
+import { rememberEntry } from "@/app/lib/my-bookings-store";
+import {
+  effectivePrice,
+  formatDate,
+  formatDuration,
+  formatPrice,
+  hasSale,
+} from "@/app/lib/format";
 
 const STEPS = ["Үйлчилгээ", "Мастер", "Огноо & цаг", "Мэдээлэл"];
 
@@ -81,6 +88,14 @@ export default function BookingForm({
     if (time && !slots.includes(time)) setTime("");
   }, [slots, time]);
 
+  // Захиалга амжилттай болмогц кодыг энэ төхөөрөмжид сануулна, ингэснээр
+  // үйлчлүүлэгч /my хуудсанд дахин бичихгүйгээр захиалгаа харна.
+  useEffect(() => {
+    if (state.status === "success") {
+      rememberEntry({ code: state.summary.code, phone: state.summary.phone });
+    }
+  }, [state]);
+
   const canNext =
     (step === 0 && !!serviceId) ||
     (step === 1 && !!staffId) ||
@@ -99,18 +114,38 @@ export default function BookingForm({
         <p className="mt-2 text-muted">
           Таны захиалгыг хүлээн авлаа. Бид тантай удахгүй холбогдож баталгаажуулна.
         </p>
-        <div className="mx-auto mt-6 max-w-sm rounded-2xl bg-surface-2 p-5 text-left text-sm">
+
+        <div className="mx-auto mt-7 max-w-sm rounded-2xl border border-primary bg-primary-soft/50 p-5">
+          <p className="text-xs font-medium text-muted">Таны захиалгын код</p>
+          <p className="mt-1 font-mono text-3xl font-semibold tracking-[0.3em] text-primary">
+            {state.summary.code}
+          </p>
+          <p className="mt-3 text-xs leading-5 text-muted">
+            Энэ кодоор захиалгаа хянах, цуцлах боломжтой. Хадгалж авна уу.
+          </p>
+        </div>
+
+        <div className="mx-auto mt-4 max-w-sm rounded-2xl bg-surface-2 p-5 text-left text-sm">
           <Row label="Үйлчилгээ" value={state.summary.service} />
           <Row label="Мастер" value={state.summary.staff} />
           <Row label="Огноо" value={formatDate(state.summary.date)} />
           <Row label="Цаг" value={state.summary.time} />
         </div>
-        <Link
-          href="/"
-          className="mt-8 inline-block rounded-full bg-primary px-7 py-3 text-sm font-medium text-white hover:bg-primary-hover"
-        >
-          Нүүр хуудас руу буцах
-        </Link>
+
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <Link
+            href="/my"
+            className="rounded-full bg-primary px-7 py-3 text-sm font-medium text-white hover:bg-primary-hover"
+          >
+            Захиалгаа харах
+          </Link>
+          <Link
+            href="/"
+            className="rounded-full border border-border px-7 py-3 text-sm font-medium text-foreground hover:border-ring"
+          >
+            Нүүр хуудас
+          </Link>
+        </div>
       </div>
     );
   }
@@ -184,7 +219,11 @@ export default function BookingForm({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium text-foreground">{s.name}</span>
                     <span className="block text-xs text-muted">
-                      {formatPrice(s.price)} · {formatDuration(s.durationMin)}
+                      {hasSale(s) && <s className="mr-1">{formatPrice(s.price)}</s>}
+                      <span className={hasSale(s) ? "font-semibold text-rose-600" : ""}>
+                        {formatPrice(effectivePrice(s))}
+                      </span>{" "}
+                      · {formatDuration(s.durationMin)}
                     </span>
                   </span>
                 </button>
@@ -333,7 +372,16 @@ export default function BookingForm({
               {service && (
                 <div className="mt-3 flex justify-between border-t border-border pt-3 font-medium text-foreground">
                   <span>Нийт төлбөр</span>
-                  <span>{formatPrice(service.price)}</span>
+                  <span>
+                    {hasSale(service) && (
+                      <s className="mr-2 font-normal text-muted">
+                        {formatPrice(service.price)}
+                      </s>
+                    )}
+                    <span className={hasSale(service) ? "text-rose-600" : ""}>
+                      {formatPrice(effectivePrice(service))}
+                    </span>
+                  </span>
                 </div>
               )}
             </div>

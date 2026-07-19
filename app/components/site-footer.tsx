@@ -20,6 +20,7 @@ export default function SiteFooter() {
             <li><Link href="/services" className="hover:text-primary">Үйлчилгээ</Link></li>
             <li><Link href="/staff" className="hover:text-primary">Мастерууд</Link></li>
             <li><Link href="/book" className="hover:text-primary">Цаг захиалах</Link></li>
+            <li><Link href="/my" className="hover:text-primary">Миний захиалга</Link></li>
           </ul>
         </div>
 

@@ -8,6 +8,7 @@ const links = [
   { href: "/", label: "Нүүр" },
   { href: "/services", label: "Үйлчилгээ" },
   { href: "/staff", label: "Мастерууд" },
+  { href: "/my", label: "Миний захиалга" },
 ];
 
 export default function SiteHeader() {

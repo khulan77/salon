@@ -12,9 +12,15 @@ create table if not exists public.services (
   category     text not null default 'Бусад',
   duration_min integer not null default 60,
   price        integer not null default 0,
+  sale_percent integer not null default 0,
   emoji        text not null default '✨',
-  active       boolean not null default true
+  active       boolean not null default true,
+  constraint services_sale_percent_range check (sale_percent between 0 and 90)
 );
+
+-- Migration for databases created before the sale feature existed.
+alter table public.services
+  add column if not exists sale_percent integer not null default 0;
 
 create table if not exists public.staff (
   id          text primary key,
@@ -38,9 +44,14 @@ create table if not exists public.bookings (
   customer_phone text not null,
   note           text not null default '',
   status         text not null default 'pending',
+  code           text,
   created_at     timestamptz not null default now()
 );
 create index if not exists bookings_staff_date_idx on public.bookings (staff_id, date);
+
+-- Захиалгын код (үйлчлүүлэгч /my хуудаснаас захиалгаа хайхад хэрэглэнэ).
+alter table public.bookings add column if not exists code text;
+create unique index if not exists bookings_code_key on public.bookings (code);
 
 create table if not exists public.reviews (
   id            text primary key,

@@ -18,6 +18,22 @@ function toHHMM(min: number): string {
   const m = min % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
+// Андуурч уншихааргүй тэмдэгтүүд (0/O, 1/I) орхигдсон цагаан жагсаалт.
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function newBookingCode(): string {
+  let out = "";
+  for (let i = 0; i < 6; i++) {
+    out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  }
+  return out;
+}
+
+/** Утасны дугаарыг зөвхөн цифрээр нь харьцуулна ("9911-2233" = "99112233"). */
+export function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, "");
+}
+
 function localTodayISO(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
@@ -37,6 +53,7 @@ const serviceFromRow = (r: any): Service => ({
   category: r.category ?? "Бусад",
   durationMin: r.duration_min ?? 60,
   price: r.price ?? 0,
+  salePercent: r.sale_percent ?? 0,
   emoji: r.emoji ?? "✨",
   active: r.active ?? true,
 });
@@ -46,6 +63,7 @@ const serviceToRow = (s: Partial<Service>) => ({
   ...(s.category !== undefined && { category: s.category }),
   ...(s.durationMin !== undefined && { duration_min: s.durationMin }),
   ...(s.price !== undefined && { price: s.price }),
+  ...(s.salePercent !== undefined && { sale_percent: s.salePercent }),
   ...(s.emoji !== undefined && { emoji: s.emoji }),
   ...(s.active !== undefined && { active: s.active }),
 });
@@ -82,6 +100,7 @@ const bookingFromRow = (r: any): Booking => ({
   customerPhone: r.customer_phone,
   note: r.note ?? "",
   status: r.status,
+  code: r.code ?? "",
   createdAt: r.created_at,
 });
 
@@ -220,10 +239,13 @@ export async function countPendingBookings(): Promise<number> {
 }
 
 export async function createBooking(
-  input: Omit<Booking, "id" | "createdAt" | "status"> & { status?: Booking["status"] },
+  input: Omit<Booking, "id" | "createdAt" | "status" | "code"> & {
+    status?: Booking["status"];
+  },
 ): Promise<Booking> {
   const id = `bkg-${randomUUID().slice(0, 8)}`;
   const status = input.status ?? "pending";
+  const code = newBookingCode();
   const createdAt = new Date().toISOString();
   const { error } = await db().from("bookings").insert({
     id,
@@ -235,6 +257,7 @@ export async function createBooking(
     customer_phone: input.customerPhone,
     note: input.note,
     status,
+    code,
     created_at: createdAt,
   });
   if (error) {
@@ -243,7 +266,29 @@ export async function createBooking(
     if ((error as { code?: string }).code === "23505") throw new Error("SLOT_TAKEN");
     throw new Error(error.message);
   }
-  return { ...input, id, status, createdAt };
+  return { ...input, id, status, code, createdAt };
+}
+
+/**
+ * Код + утасны дугаараар нэг захиалга олно. Хоёулаа таарсан үед л буцаана —
+ * зөвхөн кодоор таамаглах, эсвэл зөвхөн дугаараар бусдын захиалга харах
+ * боломжгүй болно.
+ */
+export async function getBookingByCodeAndPhone(
+  code: string,
+  phone: string,
+): Promise<Booking | undefined> {
+  const clean = code.trim().toUpperCase();
+  if (!clean) return undefined;
+  const { data } = await db()
+    .from("bookings")
+    .select("*")
+    .eq("code", clean)
+    .maybeSingle();
+  if (!data) return undefined;
+  const booking = bookingFromRow(data);
+  if (normalizePhone(booking.customerPhone) !== normalizePhone(phone)) return undefined;
+  return booking;
 }
 
 export async function updateBookingStatus(

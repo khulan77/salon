@@ -1,8 +1,8 @@
 import { getSession } from "@/app/lib/auth";
 import { getBookings, getServices } from "@/app/lib/db";
 import { staffSetBookingStatusAction } from "@/app/lib/actions";
-import { formatDate, formatDuration, formatPrice } from "@/app/lib/format";
-import { StatusBadge } from "@/app/admin/(dash)/bookings/status";
+import { effectivePrice, formatDate, formatDuration, formatPrice } from "@/app/lib/format";
+import { StatusBadge } from "@/app/components/status-badge";
 import type { BookingStatus } from "@/app/lib/types";
 
 const STAFF_ACTIONS: { status: BookingStatus; label: string }[] = [
@@ -84,7 +84,7 @@ export default async function PortalPage() {
                     <div className="text-muted">⏰ {b.time}</div>
                     {svc && (
                       <div className="mt-1 text-xs text-muted">
-                        {formatDuration(svc.durationMin)} · {formatPrice(svc.price)}
+                        {formatDuration(svc.durationMin)} · {formatPrice(effectivePrice(svc))}
                       </div>
                     )}
                   </div>

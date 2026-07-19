@@ -17,6 +17,7 @@ import {
   deleteStaff,
   getAvailableSlots,
   getBooking,
+  getBookingByCodeAndPhone,
   getService,
   getStaffForService,
   getStaffMember,
@@ -28,8 +29,8 @@ import {
 } from "./db";
 import { deleteImage, saveImage } from "./upload";
 import { newBookingEmail, sendEmail } from "./email";
-import { formatDate } from "./format";
-import type { BookingStatus, Settings } from "./types";
+import { effectivePrice, formatDate, normalizeSalePercent } from "./format";
+import type { Booking, BookingStatus, MyBooking, Settings } from "./types";
 
 async function requireAdmin() {
   if (!(await isAdmin())) {
@@ -94,7 +95,14 @@ export type BookState =
   | { status: "error"; message: string }
   | {
       status: "success";
-      summary: { service: string; staff: string; date: string; time: string };
+      summary: {
+        service: string;
+        staff: string;
+        date: string;
+        time: string;
+        code: string;
+        phone: string;
+      };
     };
 
 export async function bookAction(
@@ -136,8 +144,17 @@ export async function bookAction(
     };
   }
 
+  let booking;
   try {
-    await createBooking({ serviceId, staffId, date, time, customerName, customerPhone, note });
+    booking = await createBooking({
+      serviceId,
+      staffId,
+      date,
+      time,
+      customerName,
+      customerPhone,
+      note,
+    });
   } catch (e) {
     // Race safety net: the DB unique index rejected a slot taken microseconds ago.
     if ((e as Error).message === "SLOT_TAKEN") {
@@ -172,8 +189,104 @@ export async function bookAction(
 
   return {
     status: "success",
-    summary: { service: service.name, staff: staff.name, date, time },
+    summary: {
+      service: service.name,
+      staff: staff.name,
+      date,
+      time,
+      code: booking.code,
+      phone: customerPhone,
+    },
   };
+}
+
+/* ---------------- Customer: "Миний захиалга" ---------------- */
+
+/** Цагаас хэдэн цагийн өмнө хүртэл үйлчлүүлэгч өөрөө цуцалж болох вэ. */
+const CANCEL_CUTOFF_HOURS = 2;
+
+function startsAt(booking: { date: string; time: string }): number {
+  return new Date(`${booking.date}T${booking.time}:00`).getTime();
+}
+
+function isCancellable(booking: Booking): boolean {
+  if (booking.status !== "pending" && booking.status !== "confirmed") return false;
+  const start = startsAt(booking);
+  if (Number.isNaN(start)) return false;
+  return start - Date.now() > CANCEL_CUTOFF_HOURS * 60 * 60 * 1000;
+}
+
+/** Дотоод захиалгыг үйлчлүүлэгчид үзүүлэх аюулгүй хэлбэрт хөрвүүлнэ. */
+async function toMyBooking(booking: Booking): Promise<MyBooking> {
+  const [service, staff] = await Promise.all([
+    getService(booking.serviceId),
+    getStaffMember(booking.staffId),
+  ]);
+  return {
+    code: booking.code,
+    date: booking.date,
+    time: booking.time,
+    status: booking.status,
+    customerName: booking.customerName,
+    serviceName: service?.name ?? "—",
+    serviceEmoji: service?.emoji ?? "✨",
+    staffName: staff?.name ?? "—",
+    price: service ? effectivePrice(service) : 0,
+    durationMin: service?.durationMin ?? 0,
+    cancellable: isCancellable(booking),
+  };
+}
+
+/** Нэг захиалгыг код + утсаар хайна. Олдоогүй бол null. */
+export async function findMyBookingAction(
+  code: string,
+  phone: string,
+): Promise<MyBooking | null> {
+  const booking = await getBookingByCodeAndPhone(code, phone);
+  return booking ? toMyBooking(booking) : null;
+}
+
+/**
+ * Төхөөрөмжид хадгалагдсан хэд хэдэн код/утсыг нэг дор шалгана.
+ * Олдоогүйг нь чимээгүй алгасаад, огноогоор нь эрэмбэлж буцаана.
+ */
+export async function listMyBookingsAction(
+  entries: { code: string; phone: string }[],
+): Promise<MyBooking[]> {
+  const found = await Promise.all(
+    entries.slice(0, 20).map((e) => getBookingByCodeAndPhone(e.code, e.phone)),
+  );
+  const bookings = await Promise.all(
+    found.filter((b): b is Booking => Boolean(b)).map(toMyBooking),
+  );
+  return bookings.sort((a, b) => startsAt(b) - startsAt(a));
+}
+
+export type CancelResult = { ok: boolean; message: string };
+
+/** Үйлчлүүлэгч өөрийн захиалгаа цуцална (код + утсаар баталгаажуулна). */
+export async function cancelMyBookingAction(
+  code: string,
+  phone: string,
+): Promise<CancelResult> {
+  const booking = await getBookingByCodeAndPhone(code, phone);
+  if (!booking) {
+    return { ok: false, message: "Захиалга олдсонгүй. Код болон дугаараа шалгана уу." };
+  }
+  if (booking.status === "cancelled") {
+    return { ok: false, message: "Энэ захиалга аль хэдийн цуцлагдсан байна." };
+  }
+  if (!isCancellable(booking)) {
+    return {
+      ok: false,
+      message: `Цагаас ${CANCEL_CUTOFF_HOURS} цагийн өмнөөс эхлэн онлайнаар цуцлах боломжгүй. Утсаар холбогдоно уу.`,
+    };
+  }
+
+  await updateBookingStatus(booking.id, "cancelled");
+  revalidatePath("/admin/bookings");
+  revalidatePath("/portal");
+  return { ok: true, message: "Захиалга цуцлагдлаа." };
 }
 
 /* ---------------- Admin: services ---------------- */
@@ -181,6 +294,20 @@ export async function bookAction(
 function parsePrice(v: FormDataEntryValue | null): number {
   const n = Number(String(v ?? "").replace(/[^0-9.]/g, ""));
   return Number.isFinite(n) ? Math.round(n) : 0;
+}
+
+/** Үнэ/хямдрал өөрчлөгдөхөд үүнийг харуулдаг бүх хуудсыг шинэчилнэ. */
+function revalidateServices(): void {
+  revalidatePath("/admin/services");
+  revalidatePath("/services");
+  revalidatePath("/book");
+  revalidatePath("/");
+}
+
+/** Хямдралын хувь: "Хямдралтай" тэмдэглээгүй бол үргэлж 0. */
+function parseSalePercent(formData: FormData): number {
+  if (formData.get("onSale") === null) return 0;
+  return normalizeSalePercent(parsePrice(formData.get("salePercent")));
 }
 
 export async function createServiceAction(formData: FormData): Promise<void> {
@@ -191,11 +318,11 @@ export async function createServiceAction(formData: FormData): Promise<void> {
     category: String(formData.get("category") ?? "").trim() || "Бусад",
     durationMin: parsePrice(formData.get("durationMin")) || 60,
     price: parsePrice(formData.get("price")),
+    salePercent: parseSalePercent(formData),
     emoji: String(formData.get("emoji") ?? "").trim() || "✨",
     active: formData.get("active") !== null,
   });
-  revalidatePath("/admin/services");
-  revalidatePath("/services");
+  revalidateServices();
 }
 
 export async function updateServiceAction(formData: FormData): Promise<void> {
@@ -207,18 +334,17 @@ export async function updateServiceAction(formData: FormData): Promise<void> {
     category: String(formData.get("category") ?? "").trim(),
     durationMin: parsePrice(formData.get("durationMin")) || 60,
     price: parsePrice(formData.get("price")),
+    salePercent: parseSalePercent(formData),
     emoji: String(formData.get("emoji") ?? "").trim() || "✨",
     active: formData.get("active") !== null,
   });
-  revalidatePath("/admin/services");
-  revalidatePath("/services");
+  revalidateServices();
 }
 
 export async function deleteServiceAction(formData: FormData): Promise<void> {
   await requireAdmin();
   await deleteService(String(formData.get("id") ?? ""));
-  revalidatePath("/admin/services");
-  revalidatePath("/services");
+  revalidateServices();
 }
 
 /* ---------------- Admin: staff ---------------- */

@@ -1,5 +1,5 @@
 import { getBookings, getServices, getStaff } from "@/app/lib/db";
-import { formatPrice } from "@/app/lib/format";
+import { effectivePrice, formatPrice } from "@/app/lib/format";
 
 export const metadata = { title: "Орлого — Lumière Admin" };
 
@@ -15,8 +15,11 @@ export default async function AdminRevenuePage() {
     getStaff(),
   ]);
 
-  const priceOf = (serviceId: string) =>
-    services.find((s) => s.id === serviceId)?.price ?? 0;
+  // Орлогыг хямдрал тооцсон бодит үнээр бодно.
+  const priceOf = (serviceId: string) => {
+    const svc = services.find((s) => s.id === serviceId);
+    return svc ? effectivePrice(svc) : 0;
+  };
 
   const done = bookings.filter((b) => b.status === "done");
   const confirmed = bookings.filter((b) => b.status === "confirmed");
@@ -34,7 +37,12 @@ export default async function AdminRevenuePage() {
   const byService = services
     .map((s) => {
       const rows = done.filter((b) => b.serviceId === s.id);
-      return { name: s.name, emoji: s.emoji, count: rows.length, revenue: rows.length * s.price };
+      return {
+        name: s.name,
+        emoji: s.emoji,
+        count: rows.length,
+        revenue: rows.length * effectivePrice(s),
+      };
     })
     .filter((r) => r.count > 0)
     .sort((a, b) => b.revenue - a.revenue);

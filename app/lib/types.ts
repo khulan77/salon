@@ -4,7 +4,8 @@ export type Service = {
   description: string;
   category: string;
   durationMin: number;
-  price: number; // MNT
+  price: number; // MNT — жирийн үнэ
+  salePercent: number; // 0 = хямдралгүй, 1–90 = хямдралын хувь
   emoji: string;
   active: boolean;
 };
@@ -38,7 +39,23 @@ export type Booking = {
   customerPhone: string;
   note: string;
   status: BookingStatus;
+  code: string; // үйлчлүүлэгчид өгөх 6 тэмдэгт хайх код, ж: "K7F2QX"
   createdAt: string; // ISO
+};
+
+/** Үйлчлүүлэгчид /my хуудсанд буцаах аюулгүй хэлбэр (утас, тэмдэглэлгүй). */
+export type MyBooking = {
+  code: string;
+  date: string;
+  time: string;
+  status: BookingStatus;
+  customerName: string;
+  serviceName: string;
+  serviceEmoji: string;
+  staffName: string;
+  price: number;
+  durationMin: number;
+  cancellable: boolean;
 };
 
 export type Review = {
