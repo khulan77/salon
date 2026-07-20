@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Service, Staff } from "@/app/lib/types";
 import { bookAction, getAvailableSlotsAction, type BookState } from "@/app/lib/actions";
 import { rememberEntry } from "@/app/lib/my-bookings-store";
+import { salonToday } from "@/app/lib/time";
 import {
   effectivePrice,
   formatDate,
@@ -15,12 +16,8 @@ import {
 
 const STEPS = ["Үйлчилгээ", "Мастер", "Огноо & цаг", "Мэдээлэл"];
 
-function todayISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-}
+// Үйлчлүүлэгч гадаадаас захиалж байсан ч салоны өнөөдрөөс эхэлнэ.
+const todayISO = salonToday;
 
 export default function BookingForm({
   services,

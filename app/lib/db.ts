@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { supabaseService } from "./supabase/service";
+import { salonNowMinutes, salonToday } from "./time";
 import type { Booking, Review, Service, Settings, Staff } from "./types";
 
 const DEFAULT_SETTINGS: Settings = {
@@ -34,12 +35,6 @@ export function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
 }
 
-function localTodayISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-}
 
 const db = () => supabaseService();
 
@@ -313,9 +308,11 @@ export async function getAvailableSlots(
 ): Promise<string[]> {
   const settings = await getSettings();
 
-  const day = new Date(date + "T00:00:00");
+  // Гаригийг UTC-ээр уншина — календарийн огнооны гариг цагийн бүсээс
+  // хамаарахгүй тул серверийн бүс юу ч байсан ижил хариу өгнө.
+  const day = new Date(date + "T00:00:00Z");
   if (Number.isNaN(day.getTime())) return [];
-  if (settings.closedDays.includes(day.getDay())) return [];
+  if (settings.closedDays.includes(day.getUTCDay())) return [];
 
   const service = await getService(serviceId);
   const duration = service?.durationMin ?? settings.slotMinutes;
@@ -339,9 +336,10 @@ export async function getAvailableSlots(
     return [start, start + (svc?.durationMin ?? step)] as const;
   });
 
-  const isToday = date === localTodayISO();
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  // Салоны цагаар тооцно — сервер UTC дээр ажиллаж байсан ч өнгөрсөн цаг
+  // "сул" гэж харагдахгүй.
+  const isToday = date === salonToday();
+  const nowMin = salonNowMinutes();
 
   const slots: string[] = [];
   for (let t = open; t + duration <= close; t += step) {

@@ -2,6 +2,7 @@ import { getSession } from "@/app/lib/auth";
 import { getBookings, getServices } from "@/app/lib/db";
 import { staffSetBookingStatusAction } from "@/app/lib/actions";
 import { effectivePrice, formatDate, formatDuration, formatPrice } from "@/app/lib/format";
+import { salonToday } from "@/app/lib/time";
 import { StatusBadge } from "@/app/components/status-badge";
 import type { BookingStatus } from "@/app/lib/types";
 
@@ -14,13 +15,6 @@ const STAFF_ACTIONS: { status: BookingStatus; label: string }[] = [
 
 export const metadata = { title: "Миний хуваарь — Lumière" };
 
-function localTodayISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-}
-
 export default async function PortalPage() {
   const session = await getSession();
   // Layout guarantees a staff session, but guard for types.
@@ -31,7 +25,7 @@ export default async function PortalPage() {
     (b) => b.staffId === session.staffId && b.status !== "cancelled",
   );
 
-  const today = localTodayISO();
+  const today = salonToday();
   const upcoming = mine
     .filter((b) => b.date >= today && b.status !== "done")
     .sort((a, b) => (a.date + a.time > b.date + b.time ? 1 : -1));

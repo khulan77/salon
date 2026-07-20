@@ -30,6 +30,7 @@ import {
 import { deleteImage, saveImage } from "./upload";
 import { newBookingEmail, sendEmail } from "./email";
 import { effectivePrice, formatDate, normalizeSalePercent } from "./format";
+import { salonInstant } from "./time";
 import type { Booking, BookingStatus, MyBooking, Settings } from "./types";
 
 async function requireAdmin() {
@@ -206,7 +207,7 @@ export async function bookAction(
 const CANCEL_CUTOFF_HOURS = 2;
 
 function startsAt(booking: { date: string; time: string }): number {
-  return new Date(`${booking.date}T${booking.time}:00`).getTime();
+  return salonInstant(booking.date, booking.time);
 }
 
 function isCancellable(booking: Booking): boolean {

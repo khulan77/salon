@@ -1,5 +1,6 @@
 import { getBookings, getServices, getStaff } from "@/app/lib/db";
 import { effectivePrice, formatPrice } from "@/app/lib/format";
+import { salonToday } from "@/app/lib/time";
 
 export const metadata = { title: "Орлого — Lumière Admin" };
 
@@ -27,10 +28,12 @@ export default async function AdminRevenuePage() {
   const realized = done.reduce((sum, b) => sum + priceOf(b.serviceId), 0);
   const expected = confirmed.reduce((sum, b) => sum + priceOf(b.serviceId), 0);
 
-  const now = new Date();
-  const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  // Сарын зааг ч салоны цагаар — UTC сервер дээр сарын эхний өдөр
+  // өмнөх сар руу орох эрсдэлгүй.
+  const salonMonth = salonToday().slice(0, 7);
+  const monthIndex = Number(salonMonth.slice(5, 7)) - 1;
   const thisMonth = done
-    .filter((b) => b.date.startsWith(thisMonthKey))
+    .filter((b) => b.date.startsWith(salonMonth))
     .reduce((sum, b) => sum + priceOf(b.serviceId), 0);
 
   // Breakdown by service (realized).
@@ -73,7 +76,7 @@ export default async function AdminRevenuePage() {
 
   const cards = [
     { label: "Нийт биелсэн орлого", value: realized, hint: `${done.length} үйлчилгээ`, accent: true },
-    { label: "Энэ сарын орлого", value: thisMonth, hint: MONTHS[now.getMonth()] },
+    { label: "Энэ сарын орлого", value: thisMonth, hint: MONTHS[monthIndex] },
     { label: "Хүлээгдэж буй (батлагдсан)", value: expected, hint: `${confirmed.length} захиалга` },
   ];
 
