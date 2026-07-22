@@ -1,6 +1,9 @@
 import MyBookings from "./my-bookings";
 
-export const metadata = { title: "Миний захиалга — Lumière" };
+// Толгой/хөлд гарах салоны нэр Тохиргооноос ирдэг тул build үед хөлдөөхгүй.
+export const dynamic = "force-dynamic";
+
+export const metadata = { title: "Миний захиалга" };
 
 export default function MyBookingsPage() {
   return (

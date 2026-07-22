@@ -2,7 +2,7 @@ import { getServices, getStaff } from "@/app/lib/db";
 import StaffCard from "@/app/components/staff-card";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Мастерууд — Lumière" };
+export const metadata = { title: "Мастерууд" };
 
 export default async function StaffPage() {
   const [staff, services] = await Promise.all([

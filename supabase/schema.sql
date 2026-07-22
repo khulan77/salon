@@ -68,6 +68,15 @@ create table if not exists public.settings (
   close_time   text not null default '20:00',
   slot_minutes integer not null default 30,
   closed_days  integer[] not null default '{}',
+  -- Салоны танилцуулга — админаас засна, сайт даяар эндээс уншина.
+  salon_name   text not null default 'Lumière',
+  tagline      text not null default 'Гоо сайхны салон',
+  phone        text not null default '',
+  email        text not null default '',
+  address      text not null default '',
+  about        text not null default '',
+  -- Хаягаас автоматаар олдсон "өргөрөг,уртраг". Админ гараар оруулахгүй.
+  map_coords   text not null default '',
   constraint settings_singleton check (id = 1)
 );
 

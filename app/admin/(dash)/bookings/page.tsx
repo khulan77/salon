@@ -4,7 +4,7 @@ import { deleteBookingAction, setBookingStatusAction } from "@/app/lib/actions";
 import { StatusBadge } from "@/app/components/status-badge";
 import type { BookingStatus } from "@/app/lib/types";
 
-export const metadata = { title: "Захиалгууд — Lumière Admin" };
+export const metadata = { title: "Захиалгууд" };
 
 const ACTIONS: { status: BookingStatus; label: string }[] = [
   { status: "confirmed", label: "Батлах" },

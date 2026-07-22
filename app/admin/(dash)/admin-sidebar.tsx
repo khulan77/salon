@@ -15,7 +15,13 @@ const nav = [
   { href: "/admin/settings", label: "Тохиргоо", icon: "⚙️" },
 ];
 
-export default function AdminSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
+export default function AdminSidebar({
+  pendingCount = 0,
+  salonName,
+}: {
+  pendingCount?: number;
+  salonName: string;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -56,7 +62,7 @@ export default function AdminSidebar({ pendingCount = 0 }: { pendingCount?: numb
       {/* Mobile top bar */}
       <div className="flex items-center justify-between border-b border-border bg-surface px-5 py-3 lg:hidden">
         <Link href="/admin" className="flex items-baseline gap-1.5">
-          <span className="font-display text-xl font-semibold text-foreground">Lumière</span>
+          <span className="font-display text-xl font-semibold text-foreground">{salonName}</span>
           <span className="text-xs text-muted">Admin</span>
         </Link>
         <button
@@ -79,7 +85,7 @@ export default function AdminSidebar({ pendingCount = 0 }: { pendingCount?: numb
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface p-5 lg:flex">
         <Link href="/admin" className="flex items-baseline gap-1.5 px-2">
-          <span className="font-display text-2xl font-semibold text-foreground">Lumière</span>
+          <span className="font-display text-2xl font-semibold text-foreground">{salonName}</span>
           <span className="text-primary">✦</span>
         </Link>
         <p className="mb-6 px-2 text-xs text-muted">Удирдлагын самбар</p>

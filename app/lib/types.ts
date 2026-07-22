@@ -72,6 +72,15 @@ export type Settings = {
   closeTime: string; // "20:00"
   slotMinutes: number; // interval between slot start times
   closedDays: number[]; // weekday numbers closed, 0=Ням … 6=Бямба
+
+  // Салоны танилцуулга — сайтын толгой, хөл, нүүр хуудас эндээс уншина.
+  salonName: string;
+  tagline: string;
+  phone: string;
+  email: string;
+  address: string;
+  about: string;
+  mapCoords: string; // хаягаас автоматаар олдсон "47.9185,106.9177"
 };
 
 export type Database = {

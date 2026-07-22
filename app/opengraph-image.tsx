@@ -1,10 +1,17 @@
 import { ImageResponse } from "next/og";
+import { getSettings } from "@/app/lib/db";
 
-export const alt = "Lumière — Гоо сайхны салон";
+export const alt = "Гоо сайхны салон — онлайн цаг захиалга";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default function OpengraphImage() {
+// Салоны нэрийг Тохиргооноос уншдаг тул build үед хөлдөөж болохгүй —
+// эс тэгвэл нэр солиход хуваалцсан зураг хуучнаараа үлдэнэ.
+export const dynamic = "force-dynamic";
+
+export default async function OpengraphImage() {
+  const { salonName, tagline } = await getSettings();
+
   return new ImageResponse(
     (
       <div
@@ -30,18 +37,18 @@ export default function OpengraphImage() {
             fontWeight: 600,
           }}
         >
-          ГОО САЙХНЫ САЛОН
+          {(tagline || "Гоо сайхны салон").toUpperCase()}
         </div>
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            fontSize: 150,
+            fontSize: salonName.length > 12 ? 92 : 150,
             fontWeight: 700,
             marginTop: 8,
           }}
         >
-          Lumière
+          {salonName}
           <div
             style={{
               width: 44,

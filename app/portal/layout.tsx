@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/app/lib/auth";
 import { logoutAction } from "@/app/lib/actions";
+import { getSettings } from "@/app/lib/db";
 
 export default async function PortalLayout({
   children,
@@ -12,12 +13,14 @@ export default async function PortalLayout({
   if (!session) redirect("/login");
   if (session.role === "admin") redirect("/admin"); // admins use the full panel
 
+  const { salonName } = await getSettings();
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="border-b border-border bg-surface">
         <div className="mx-auto flex h-16 w-full max-w-4xl items-center justify-between px-5">
           <Link href="/portal" className="flex items-baseline gap-1.5">
-            <span className="font-display text-2xl font-semibold text-foreground">Lumière</span>
+            <span className="font-display text-2xl font-semibold text-foreground">{salonName}</span>
             <span className="text-xs text-muted">Ажилтан</span>
           </Link>
           <div className="flex items-center gap-4">

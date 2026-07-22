@@ -1,17 +1,21 @@
 import Link from "next/link";
-import { getReviews, getServices, getStaff } from "@/app/lib/db";
+import { getReviews, getServices, getSettings, getStaff } from "@/app/lib/db";
 import ServiceCard from "@/app/components/service-card";
 import StaffCard from "@/app/components/staff-card";
+import { formatHours, mapEmbedUrl } from "@/app/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [services, staff, reviews] = await Promise.all([
+  const [services, staff, reviews, settings] = await Promise.all([
     getServices({ activeOnly: true }),
     getStaff({ activeOnly: true }),
     getReviews({ activeOnly: true }),
+    getSettings(),
   ]);
   const featured = services.slice(0, 6);
+  const hours = formatHours(settings);
+  const mapUrl = mapEmbedUrl(settings.mapCoords);
 
   return (
     <div>
@@ -62,7 +66,7 @@ export default async function HomePage() {
             <div className="relative aspect-square w-full max-w-sm">
               <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-full bg-gradient-to-br from-primary-soft via-surface to-surface-2 px-12 text-center">
                 <div className="text-7xl">💇‍♀️</div>
-                <p className="font-display text-2xl text-foreground">Lumière Beauty</p>
+                <p className="font-display text-2xl text-foreground">{settings.salonName}</p>
                 <p className="max-w-[15rem] text-sm leading-6 text-muted">
                   Үс, хумс, арьс арчилгаа, нүүр будалт
                 </p>
@@ -113,10 +117,9 @@ export default async function HomePage() {
             <h2 className="mt-1 font-display text-3xl font-semibold text-foreground">
               Гоо сайхан бол өөрийгөө хайрлах эхлэл
             </h2>
-            <p className="mt-4 leading-8 text-muted">
-              Lumière нь 2016 онд байгуулагдсан бөгөөд өнгөрсөн хугацаанд мянга мянган
-              үйлчлүүлэгчийн итгэлийг хүлээсэн. Бид зөвхөн чанартай бүтээгдэхүүн ашиглаж,
-              мэргэжлийн мастеруудаараа таны хүссэн дүр төрхийг бүтээнэ.
+            <p className="mt-4 whitespace-pre-line leading-8 text-muted">
+              {settings.about ||
+                `${settings.salonName} нь үйлчлүүлэгчийнхээ итгэлийг хүлээсэн салон. Бид зөвхөн чанартай бүтээгдэхүүн ашиглаж, мэргэжлийн мастеруудаараа таны хүссэн дүр төрхийг бүтээнэ.`}
             </p>
             <ul className="mt-6 space-y-2.5 text-sm text-foreground">
               <li className="flex items-center gap-2">✓ Олон улсын сертификаттай мастерууд</li>
@@ -217,29 +220,36 @@ export default async function HomePage() {
 
       {/* Location */}
       <section className="mx-auto w-full max-w-6xl px-5 py-16">
-        <div className="grid gap-8 lg:grid-cols-2">
+        <div className={`grid gap-8 ${mapUrl ? "lg:grid-cols-2" : ""}`}>
           <div>
             <p className="eyebrow">Байршил</p>
             <h2 className="mt-2 font-display text-3xl font-semibold text-foreground">
               Бидэнтэй уулзаарай
             </h2>
             <ul className="mt-6 space-y-4 text-sm">
-              <li className="flex items-start gap-3">
-                <span className="text-lg">📍</span>
-                <span className="text-muted">
-                  Улаанбаатар хот, Сүхбаатар дүүрэг, 1-р хороо,
-                  <br /> Энх тайвны өргөн чөлөө, Lumière төв
-                </span>
-              </li>
-              <li className="flex items-center gap-3">
-                <span className="text-lg">📞</span>
-                <a href="tel:+97680000000" className="text-primary hover:underline">
-                  +976 8000-0000
-                </a>
-              </li>
+              {settings.address && (
+                <li className="flex items-start gap-3">
+                  <span className="text-lg">📍</span>
+                  <span className="text-muted">{settings.address}</span>
+                </li>
+              )}
+              {settings.phone && (
+                <li className="flex items-center gap-3">
+                  <span className="text-lg">📞</span>
+                  <a
+                    href={`tel:${settings.phone.replace(/[^\d+]/g, "")}`}
+                    className="text-primary hover:underline"
+                  >
+                    {settings.phone}
+                  </a>
+                </li>
+              )}
               <li className="flex items-center gap-3">
                 <span className="text-lg">🕙</span>
-                <span className="text-muted">Даваа–Баасан 10:00–20:00 · Бямба–Ням 11:00–18:00</span>
+                <span className="text-muted">
+                  {hours.days ? `${hours.days} ${hours.hours}` : "Түр хаалттай"}
+                  {hours.days && hours.closedDays && ` · ${hours.closedDays} амарна`}
+                </span>
               </li>
             </ul>
             <Link
@@ -249,15 +259,17 @@ export default async function HomePage() {
               Цаг захиалах
             </Link>
           </div>
-          <div className="card overflow-hidden rounded-[2rem] p-0">
-            <iframe
-              title="Lumière байршил"
-              className="h-full min-h-72 w-full"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              src="https://www.openstreetmap.org/export/embed.html?bbox=106.905%2C47.914%2C106.930%2C47.923&layer=mapnik&marker=47.9185%2C106.9177"
-            />
-          </div>
+          {mapUrl && (
+            <div className="card overflow-hidden rounded-[2rem] p-0">
+              <iframe
+                title={`${settings.salonName} байршил`}
+                className="h-full min-h-72 w-full"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                src={mapUrl}
+              />
+            </div>
+          )}
         </div>
       </section>
 

@@ -11,7 +11,7 @@ const links = [
   { href: "/my", label: "Миний захиалга" },
 ];
 
-export default function SiteHeader() {
+export default function SiteHeader({ salonName }: { salonName: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -23,7 +23,7 @@ export default function SiteHeader() {
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5">
         <Link href="/" className="flex items-baseline gap-1.5" onClick={() => setOpen(false)}>
           <span className="font-display text-2xl font-semibold tracking-tight text-foreground">
-            Lumière
+            {salonName}
           </span>
           <span className="text-primary">✦</span>
         </Link>

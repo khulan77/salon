@@ -19,6 +19,7 @@ import {
   getBooking,
   getBookingByCodeAndPhone,
   getService,
+  getSettings,
   getStaffForService,
   getStaffMember,
   updateBookingStatus,
@@ -28,6 +29,7 @@ import {
   updateStaff,
 } from "./db";
 import { deleteImage, saveImage } from "./upload";
+import { geocodeAddress } from "./geocode";
 import { newBookingEmail, sendEmail } from "./email";
 import { effectivePrice, formatDate, normalizeSalePercent } from "./format";
 import { salonInstant } from "./time";
@@ -174,10 +176,12 @@ export async function bookAction(
     .map((e) => e.trim())
     .filter(Boolean);
   const recipients = Array.from(new Set([...adminList, ...(staff.email ? [staff.email] : [])]));
+  const { salonName } = await getSettings();
   await sendEmail({
     to: recipients,
     subject: `Шинэ захиалга — ${service.name} (${formatDate(date)} ${time})`,
     html: newBookingEmail({
+      salonName,
       service: service.name,
       staff: staff.name,
       date: formatDate(date),
@@ -512,6 +516,18 @@ function normTime(v: FormDataEntryValue | null, fallback: string): string {
 export async function updateSettingsAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const slot = Number(formData.get("slotMinutes"));
+  const text = (key: string, max: number) =>
+    String(formData.get(key) ?? "").trim().slice(0, max);
+
+  // Газрын зургийн координатыг хаягаас өөрөө олно. Хаяг өөрчлөгдөөгүй бөгөөд
+  // өмнө нь олдсон байвал дахин хайхгүй.
+  const address = text("address", 200);
+  const current = await getSettings();
+  const mapCoords =
+    address === current.address && current.mapCoords
+      ? current.mapCoords
+      : await geocodeAddress(address);
+
   const patch: Partial<Settings> = {
     openTime: normTime(formData.get("openTime"), "10:00"),
     closeTime: normTime(formData.get("closeTime"), "20:00"),
@@ -520,8 +536,17 @@ export async function updateSettingsAction(formData: FormData): Promise<void> {
       .getAll("closedDays")
       .map((d) => Number(d))
       .filter((n) => n >= 0 && n <= 6),
+    // Нэр хоосон үлдвэл сайт нэргүй болох тул анхны утгаараа үлдээнэ.
+    salonName: text("salonName", 60) || "Lumière",
+    tagline: text("tagline", 80),
+    phone: text("phone", 40),
+    email: text("email", 80),
+    address,
+    about: text("about", 1000),
+    mapCoords,
   };
   await updateSettings(patch);
-  revalidatePath("/admin/settings");
-  revalidatePath("/book");
+
+  // Салоны мэдээлэл сайт даяар харагддаг тул бүх нийтийн хуудсыг шинэчилнэ.
+  revalidatePath("/", "layout");
 }

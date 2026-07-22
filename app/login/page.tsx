@@ -2,9 +2,10 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/app/lib/auth";
 import { isSupabaseConfigured } from "@/app/lib/supabase/config";
+import { getSettings } from "@/app/lib/db";
 import LoginForm from "./login-form";
 
-export const metadata = { title: "Нэвтрэх — Lumière" };
+export const metadata = { title: "Нэвтрэх" };
 
 export default async function LoginPage() {
   const session = await getSession();
@@ -12,12 +13,13 @@ export default async function LoginPage() {
   if (session?.role === "staff") redirect("/portal");
 
   const configured = isSupabaseConfigured();
+  const { salonName } = await getSettings();
 
   return (
     <div className="bg-warm flex min-h-screen flex-col items-center justify-center px-5">
       <div className="w-full max-w-sm">
         <Link href="/" className="flex items-center justify-center gap-1.5">
-          <span className="font-display text-3xl font-semibold text-foreground">Lumière</span>
+          <span className="font-display text-3xl font-semibold text-foreground">{salonName}</span>
           <span className="text-primary">✦</span>
         </Link>
         <p className="mt-2 text-center text-sm text-muted">Ажилтны нэвтрэх хэсэг</p>

@@ -13,7 +13,7 @@ const STAFF_ACTIONS: { status: BookingStatus; label: string }[] = [
   { status: "cancelled", label: "Цуцлах" },
 ];
 
-export const metadata = { title: "Миний хуваарь — Lumière" };
+export const metadata = { title: "Миний хуваарь" };
 
 export default async function PortalPage() {
   const session = await getSession();

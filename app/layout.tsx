@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
+import { getSettings } from "@/app/lib/db";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -16,36 +17,43 @@ const inter = Inter({
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://salon-ecru-seven.vercel.app";
-const DESCRIPTION =
-  "Lumière гоо сайхны салон — онлайн цаг захиалга, үс засалт, будалт, хумс, нүүр арчилгаа. Туршлагатай мастерууд, тансаг орчин.";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: "Lumière — Гоо сайхны салон",
-  description: DESCRIPTION,
-  keywords: [
-    "гоо сайхны салон",
-    "цаг захиалга",
-    "үс засалт",
-    "нүүр будалт",
-    "хумс",
-    "Улаанбаатар",
-    "beauty salon",
-    "Lumière",
-  ],
-  openGraph: {
-    type: "website",
-    locale: "mn_MN",
-    siteName: "Lumière",
-    title: "Lumière — Гоо сайхны салон",
-    description: DESCRIPTION,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Lumière — Гоо сайхны салон",
-    description: DESCRIPTION,
-  },
-};
+/**
+ * Гарчиг, тайлбарыг админы Тохиргооноос уншина. `title.template`-ийн ачаар хүү
+ * хуудсууд зөвхөн өөрсдийн нэрээ ("Үйлчилгээ") зарлахад салоны нэр автоматаар
+ * залгагдана.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const { salonName, tagline, about } = await getSettings();
+  const title = tagline ? `${salonName} — ${tagline}` : salonName;
+  const description =
+    about ||
+    `${salonName} — онлайн цаг захиалга, үс засалт, будалт, хумс, нүүр арчилгаа. Туршлагатай мастерууд, тансаг орчин.`;
+
+  return {
+    metadataBase: new URL(SITE_URL),
+    title: { default: title, template: `%s — ${salonName}` },
+    description,
+    keywords: [
+      "гоо сайхны салон",
+      "цаг захиалга",
+      "үс засалт",
+      "нүүр будалт",
+      "хумс",
+      "Улаанбаатар",
+      "beauty salon",
+      salonName,
+    ],
+    openGraph: {
+      type: "website",
+      locale: "mn_MN",
+      siteName: salonName,
+      title,
+      description,
+    },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 export default function RootLayout({
   children,

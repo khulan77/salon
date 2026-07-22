@@ -8,6 +8,13 @@ const DEFAULT_SETTINGS: Settings = {
   closeTime: "20:00",
   slotMinutes: 30,
   closedDays: [],
+  salonName: "Lumière",
+  tagline: "Гоо сайхны салон",
+  phone: "",
+  email: "",
+  address: "",
+  about: "",
+  mapCoords: "",
 };
 
 function toMinutes(hhmm: string): number {
@@ -119,6 +126,14 @@ const settingsFromRow = (r: any): Settings => ({
   closeTime: r.close_time ?? DEFAULT_SETTINGS.closeTime,
   slotMinutes: r.slot_minutes ?? DEFAULT_SETTINGS.slotMinutes,
   closedDays: r.closed_days ?? [],
+  // Migration хийгээгүй байсан ч сайт унахгүйгээр анхны утгаараа ажиллана.
+  salonName: r.salon_name || DEFAULT_SETTINGS.salonName,
+  tagline: r.tagline ?? DEFAULT_SETTINGS.tagline,
+  phone: r.phone ?? "",
+  email: r.email ?? "",
+  address: r.address ?? "",
+  about: r.about ?? "",
+  mapCoords: r.map_coords ?? "",
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -400,6 +415,13 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
     close_time: next.closeTime,
     slot_minutes: next.slotMinutes,
     closed_days: next.closedDays,
+    salon_name: next.salonName,
+    tagline: next.tagline,
+    phone: next.phone,
+    email: next.email,
+    address: next.address,
+    about: next.about,
+    map_coords: next.mapCoords,
   });
   if (error) throw new Error(error.message);
 }

@@ -1,7 +1,7 @@
 import { getServices, getStaff } from "@/app/lib/db";
 import BookingForm from "./booking-form";
 
-export const metadata = { title: "Цаг захиалах — Lumière" };
+export const metadata = { title: "Цаг захиалах" };
 
 export default async function BookPage({
   searchParams,

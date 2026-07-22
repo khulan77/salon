@@ -1,12 +1,15 @@
 import SiteHeader from "@/app/components/site-header";
 import SiteFooter from "@/app/components/site-footer";
+import { getSettings } from "@/app/lib/db";
 
-export default function SiteLayout({ children }: { children: React.ReactNode }) {
+export default async function SiteLayout({ children }: { children: React.ReactNode }) {
+  const settings = await getSettings();
+
   return (
     <>
-      <SiteHeader />
+      <SiteHeader salonName={settings.salonName} />
       <main className="flex-1">{children}</main>
-      <SiteFooter />
+      <SiteFooter settings={settings} />
     </>
   );
 }

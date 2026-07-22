@@ -3,7 +3,7 @@ import { getBookings, getServices, getStaff } from "@/app/lib/db";
 import { effectivePrice, formatDate, formatPrice } from "@/app/lib/format";
 import { StatusBadge } from "@/app/components/status-badge";
 
-export const metadata = { title: "Хянах самбар — Lumière Admin" };
+export const metadata = { title: "Хянах самбар" };
 
 export default async function AdminDashboard() {
   const [services, staff, bookings] = await Promise.all([

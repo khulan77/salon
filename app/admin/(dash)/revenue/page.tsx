@@ -2,7 +2,7 @@ import { getBookings, getServices, getStaff } from "@/app/lib/db";
 import { effectivePrice, formatPrice } from "@/app/lib/format";
 import { salonToday } from "@/app/lib/time";
 
-export const metadata = { title: "Орлого — Lumière Admin" };
+export const metadata = { title: "Орлого" };
 
 const MONTHS = [
   "1-р сар", "2-р сар", "3-р сар", "4-р сар", "5-р сар", "6-р сар",

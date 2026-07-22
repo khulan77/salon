@@ -36,6 +36,7 @@ export async function sendEmail(opts: {
 
 /** HTML for the "new booking" notification sent to admin + assigned staff. */
 export function newBookingEmail(b: {
+  salonName: string;
   service: string;
   staff: string;
   date: string;
@@ -49,7 +50,7 @@ export function newBookingEmail(b: {
     `<td style="padding:6px 12px;color:#2e2723;font-weight:600">${value}</td></tr>`;
   return `
   <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#faf6f1;padding:24px;border-radius:16px">
-    <h1 style="font-size:20px;color:#b76e79;margin:0 0 4px">Lumière ✦</h1>
+    <h1 style="font-size:20px;color:#b76e79;margin:0 0 4px">${b.salonName} ✦</h1>
     <p style="color:#2e2723;margin:0 0 16px">Шинэ цаг захиалга ирлээ 🎉</p>
     <table style="width:100%;background:#fff;border-radius:12px;border-collapse:separate;border-spacing:0;overflow:hidden">
       ${row("Үйлчилгээ", b.service)}
