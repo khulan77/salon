@@ -60,6 +60,41 @@ h1, h2, h3, h4, .font-display {
     var(--background);
 }
 
+/*
+  Soft card — хайрцаг хайрцган дотор харагдахаас зайлсхийхийн тулд хатуу
+  хүрээний оронд бүдэг сүүдэр ашиглана.
+*/
+@layer components {
+  .card {
+    background: var(--surface);
+    border-radius: 1.5rem;
+    box-shadow:
+      0 1px 2px rgba(46, 39, 35, 0.04),
+      0 14px 34px -22px rgba(46, 39, 35, 0.35);
+  }
+
+  .card-hover {
+    transition:
+      transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      0 2px 4px rgba(46, 39, 35, 0.04),
+      0 26px 50px -26px rgba(46, 39, 35, 0.45);
+  }
+
+  /* Section eyebrow */
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--primary);
+  }
+}
+
 /* Thin scrollbar for a tidy feel */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }

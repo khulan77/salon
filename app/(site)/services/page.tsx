@@ -12,7 +12,7 @@ export default async function ServicesPage() {
     <div className="bg-warm">
       <div className="mx-auto w-full max-w-6xl px-5 py-16">
         <header className="max-w-2xl">
-          <p className="text-sm font-medium text-primary">Манай үйлчилгээ</p>
+          <p className="eyebrow">Манай үйлчилгээ</p>
           <h1 className="mt-2 font-display text-4xl font-semibold text-foreground">
             Гоо сайхны иж бүрэн үйлчилгээ
           </h1>

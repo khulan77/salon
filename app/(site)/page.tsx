@@ -58,16 +58,29 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="relative animate-fade-up">
-            <div className="aspect-[4/5] overflow-hidden rounded-[2rem] border border-border bg-gradient-to-br from-primary-soft via-surface to-surface-2 shadow-xl">
-              <div className="flex h-full flex-col items-center justify-center gap-4 p-10 text-center">
+          <div className="flex animate-fade-up justify-center">
+            <div className="relative aspect-square w-full max-w-sm">
+              <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-full bg-gradient-to-br from-primary-soft via-surface to-surface-2 px-12 text-center">
                 <div className="text-7xl">💇‍♀️</div>
                 <p className="font-display text-2xl text-foreground">Lumière Beauty</p>
-                <p className="max-w-xs text-sm text-muted">
-                  Үс, хумс, арьс арчилгаа болон нүүр будалтын иж бүрэн үйлчилгээ
+                <p className="max-w-[15rem] text-sm leading-6 text-muted">
+                  Үс, хумс, арьс арчилгаа, нүүр будалт
                 </p>
-                <div className="mt-2 flex gap-3 text-3xl">✂️ 💅 🧖‍♀️ 💄</div>
               </div>
+
+              {[
+                { icon: "✂️", pos: "left-0 top-8" },
+                { icon: "💅", pos: "right-2 top-0" },
+                { icon: "🧖‍♀️", pos: "-left-2 bottom-16" },
+                { icon: "💄", pos: "right-0 bottom-6" },
+              ].map((c) => (
+                <span
+                  key={c.icon}
+                  className={`absolute ${c.pos} flex h-16 w-16 items-center justify-center rounded-full bg-surface text-2xl shadow-[0_10px_30px_-12px_rgba(46,39,35,0.35)]`}
+                >
+                  {c.icon}
+                </span>
+              ))}
             </div>
           </div>
         </div>
@@ -75,15 +88,17 @@ export default async function HomePage() {
 
       {/* Why us */}
       <section className="mx-auto w-full max-w-6xl px-5 py-16">
-        <div className="grid gap-6 sm:grid-cols-3">
+        <div className="grid gap-10 sm:grid-cols-3 sm:gap-8">
           {[
             { icon: "⭐", t: "Мэргэжлийн мастерууд", d: "Сертификаттай, туршлагатай баг таныг угтана." },
             { icon: "🗓️", t: "Хялбар захиалга", d: "Онлайнаар 24/7 цагаа сонгож захиалах боломж." },
             { icon: "🌿", t: "Чанартай бүтээгдэхүүн", d: "Зөвхөн шилдэг брэндийн бүтээгдэхүүн ашиглана." },
           ].map((f) => (
-            <div key={f.t} className="rounded-2xl border border-border bg-surface p-7">
-              <div className="text-3xl">{f.icon}</div>
-              <h3 className="mt-4 font-display text-lg font-semibold text-foreground">{f.t}</h3>
+            <div key={f.t} className="sm:px-2">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-2xl">
+                {f.icon}
+              </span>
+              <h3 className="mt-5 font-display text-lg font-semibold text-foreground">{f.t}</h3>
               <p className="mt-2 text-sm leading-6 text-muted">{f.d}</p>
             </div>
           ))}
@@ -92,9 +107,9 @@ export default async function HomePage() {
 
       {/* About */}
       <section className="mx-auto w-full max-w-6xl px-5 py-16">
-        <div className="grid items-center gap-10 rounded-[2rem] border border-border bg-surface p-8 sm:p-12 lg:grid-cols-2">
+        <div className="grid items-center gap-12 lg:grid-cols-2">
           <div className="order-2 lg:order-1">
-            <p className="text-sm font-medium text-primary">Бидний тухай</p>
+            <p className="eyebrow">Бидний тухай</p>
             <h2 className="mt-1 font-display text-3xl font-semibold text-foreground">
               Гоо сайхан бол өөрийгөө хайрлах эхлэл
             </h2>
@@ -110,16 +125,18 @@ export default async function HomePage() {
             </ul>
           </div>
           <div className="order-1 flex items-center justify-center lg:order-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-5 sm:gap-6">
               {[
                 { icon: "💇‍♀️", label: "Үс" },
                 { icon: "💅", label: "Хумс" },
                 { icon: "🧖‍♀️", label: "Арьс" },
                 { icon: "💄", label: "Гоо сайхан" },
-              ].map((c) => (
+              ].map((c, i) => (
                 <div
                   key={c.label}
-                  className="flex h-28 w-28 flex-col items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-primary-soft to-surface-2 sm:h-32 sm:w-32"
+                  className={`flex h-32 w-32 flex-col items-center justify-center gap-1.5 rounded-full bg-gradient-to-br from-primary-soft to-surface-2 sm:h-36 sm:w-36 ${
+                    i % 2 === 1 ? "translate-y-6" : ""
+                  }`}
                 >
                   <span className="text-4xl">{c.icon}</span>
                   <span className="text-xs text-muted">{c.label}</span>
@@ -134,8 +151,8 @@ export default async function HomePage() {
       <section className="mx-auto w-full max-w-6xl px-5 py-10">
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-sm font-medium text-primary">Үйлчилгээ</p>
-            <h2 className="mt-1 font-display text-3xl font-semibold text-foreground">
+            <p className="eyebrow">Үйлчилгээ</p>
+            <h2 className="mt-2 font-display text-3xl font-semibold text-foreground">
               Онцлох үйлчилгээнүүд
             </h2>
           </div>
@@ -153,8 +170,8 @@ export default async function HomePage() {
       {/* Staff */}
       <section className="mx-auto w-full max-w-6xl px-5 py-16">
         <div className="text-center">
-          <p className="text-sm font-medium text-primary">Манай баг</p>
-          <h2 className="mt-1 font-display text-3xl font-semibold text-foreground">
+          <p className="eyebrow">Манай баг</p>
+          <h2 className="mt-2 font-display text-3xl font-semibold text-foreground">
             Туршлагатай мастерууд
           </h2>
         </div>
@@ -170,26 +187,23 @@ export default async function HomePage() {
         <section className="bg-surface-2/50">
           <div className="mx-auto w-full max-w-6xl px-5 py-16">
             <div className="text-center">
-              <p className="text-sm font-medium text-primary">Сэтгэгдэл</p>
-              <h2 className="mt-1 font-display text-3xl font-semibold text-foreground">
+              <p className="eyebrow">Сэтгэгдэл</p>
+              <h2 className="mt-2 font-display text-3xl font-semibold text-foreground">
                 Үйлчлүүлэгчид юу гэж хэлдэг вэ
               </h2>
             </div>
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-10 grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
               {reviews.slice(0, 6).map((r) => (
-                <figure
-                  key={r.id}
-                  className="flex flex-col rounded-2xl border border-border bg-surface p-6"
-                >
+                <figure key={r.id} className="flex flex-col">
                   <div className="text-accent" aria-label={`${r.rating} од`}>
                     {"★".repeat(r.rating)}
                     <span className="text-border">{"★".repeat(5 - r.rating)}</span>
                   </div>
-                  <blockquote className="mt-3 flex-1 text-sm leading-6 text-muted">
+                  <blockquote className="mt-3 flex-1 text-sm leading-7 text-muted">
                     “{r.text}”
                   </blockquote>
-                  <figcaption className="mt-4 flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
+                  <figcaption className="mt-5 flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
                       {r.customerName.slice(0, 1)}
                     </span>
                     <span className="text-sm font-medium text-foreground">{r.customerName}</span>
@@ -205,8 +219,8 @@ export default async function HomePage() {
       <section className="mx-auto w-full max-w-6xl px-5 py-16">
         <div className="grid gap-8 lg:grid-cols-2">
           <div>
-            <p className="text-sm font-medium text-primary">Байршил</p>
-            <h2 className="mt-1 font-display text-3xl font-semibold text-foreground">
+            <p className="eyebrow">Байршил</p>
+            <h2 className="mt-2 font-display text-3xl font-semibold text-foreground">
               Бидэнтэй уулзаарай
             </h2>
             <ul className="mt-6 space-y-4 text-sm">
@@ -235,7 +249,7 @@ export default async function HomePage() {
               Цаг захиалах
             </Link>
           </div>
-          <div className="overflow-hidden rounded-[2rem] border border-border">
+          <div className="card overflow-hidden rounded-[2rem] p-0">
             <iframe
               title="Lumière байршил"
               className="h-full min-h-72 w-full"

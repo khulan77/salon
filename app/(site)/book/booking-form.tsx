@@ -101,7 +101,7 @@ export default function BookingForm({
 
   if (state.status === "success") {
     return (
-      <div className="mt-10 rounded-3xl border border-border bg-surface p-10 text-center shadow-sm">
+      <div className="card mt-10 p-10 text-center">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-3xl">
           ✓
         </div>
@@ -112,7 +112,7 @@ export default function BookingForm({
           Таны захиалгыг хүлээн авлаа. Бид тантай удахгүй холбогдож баталгаажуулна.
         </p>
 
-        <div className="mx-auto mt-7 max-w-sm rounded-2xl border border-primary bg-primary-soft/50 p-5">
+        <div className="mx-auto mt-7 max-w-sm rounded-3xl bg-primary-soft/60 p-6">
           <p className="text-xs font-medium text-muted">Таны захиалгын код</p>
           <p className="mt-1 font-mono text-3xl font-semibold tracking-[0.3em] text-primary">
             {state.summary.code}
@@ -122,7 +122,7 @@ export default function BookingForm({
           </p>
         </div>
 
-        <div className="mx-auto mt-4 max-w-sm rounded-2xl bg-surface-2 p-5 text-left text-sm">
+        <div className="mx-auto mt-4 max-w-sm rounded-3xl bg-surface-2/70 p-6 text-left text-sm">
           <Row label="Үйлчилгээ" value={state.summary.service} />
           <Row label="Мастер" value={state.summary.staff} />
           <Row label="Огноо" value={formatDate(state.summary.date)} />
@@ -138,7 +138,7 @@ export default function BookingForm({
           </Link>
           <Link
             href="/"
-            className="rounded-full border border-border px-7 py-3 text-sm font-medium text-foreground hover:border-ring"
+            className="rounded-full bg-surface-2 px-7 py-3 text-sm font-medium text-foreground transition-colors hover:bg-border/60"
           >
             Нүүр хуудас
           </Link>
@@ -182,7 +182,7 @@ export default function BookingForm({
         ))}
       </ol>
 
-      <div className="mt-8 rounded-3xl border border-border bg-surface p-6 shadow-sm sm:p-8">
+      <div className="card mt-8 p-6 sm:p-8">
         {/* Step 1: service */}
         {step === 0 && (
           <div>
@@ -204,13 +204,13 @@ export default function BookingForm({
                       }
                     }
                   }}
-                  className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-all ${
+                  className={`flex items-center gap-3 rounded-2xl p-4 text-left transition-colors ${
                     serviceId === s.id
-                      ? "border-primary bg-primary-soft"
-                      : "border-border hover:border-ring"
+                      ? "bg-primary-soft ring-2 ring-primary"
+                      : "bg-surface-2/60 hover:bg-surface-2"
                   }`}
                 >
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface-2 text-xl">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-xl">
                     {s.emoji}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -246,10 +246,10 @@ export default function BookingForm({
                     key={m.id}
                     type="button"
                     onClick={() => setStaffId(m.id)}
-                    className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-all ${
+                    className={`flex items-center gap-3 rounded-2xl p-4 text-left transition-colors ${
                       staffId === m.id
-                        ? "border-primary bg-primary-soft"
-                        : "border-border hover:border-ring"
+                        ? "bg-primary-soft ring-2 ring-primary"
+                        : "bg-surface-2/60 hover:bg-surface-2"
                     }`}
                   >
                     {m.imageUrl ? (
@@ -290,7 +290,7 @@ export default function BookingForm({
                 setDate(e.target.value);
                 setTime("");
               }}
-              className="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-ring/40"
+              className="mt-2 w-full rounded-xl bg-surface-2/60 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring/60"
             />
             <p className="mt-5 text-sm font-medium text-foreground">Боломжит цаг</p>
             {loadingSlots ? (
@@ -306,10 +306,10 @@ export default function BookingForm({
                     key={slot}
                     type="button"
                     onClick={() => setTime(slot)}
-                    className={`rounded-xl border px-2 py-2.5 text-sm transition-colors ${
+                    className={`rounded-full px-2 py-2.5 text-sm transition-colors ${
                       time === slot
-                        ? "border-primary bg-primary text-white"
-                        : "border-border text-foreground hover:border-primary hover:text-primary"
+                        ? "bg-primary text-white"
+                        : "bg-surface-2/70 text-foreground hover:bg-primary-soft hover:text-primary"
                     }`}
                   >
                     {slot}
@@ -361,7 +361,7 @@ export default function BookingForm({
             </div>
 
             {/* Summary */}
-            <div className="mt-6 rounded-2xl bg-surface-2 p-5 text-sm">
+            <div className="mt-6 rounded-2xl bg-surface-2/70 p-5 text-sm">
               <Row label="Үйлчилгээ" value={service?.name ?? "—"} />
               <Row label="Мастер" value={selectedStaff?.name ?? "—"} />
               <Row label="Огноо" value={formatDate(date)} />
@@ -393,7 +393,7 @@ export default function BookingForm({
               <button
                 type="button"
                 onClick={() => setStep((s) => s - 1)}
-                className="rounded-full border border-border px-6 py-3 text-sm font-medium text-foreground hover:border-ring"
+                className="rounded-full bg-surface-2 px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-border/60"
               >
                 ← Буцах
               </button>
@@ -415,7 +415,7 @@ export default function BookingForm({
               type="button"
               onClick={() => setStep((s) => Math.max(0, s - 1))}
               disabled={step === 0}
-              className="rounded-full border border-border px-6 py-3 text-sm font-medium text-foreground hover:border-ring disabled:opacity-40"
+              className="rounded-full bg-surface-2 px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-border/60 disabled:opacity-40"
             >
               ← Буцах
             </button>
@@ -435,15 +435,14 @@ export default function BookingForm({
         .input {
           width: 100%;
           border-radius: 0.75rem;
-          border: 1px solid var(--border);
-          background: var(--surface);
+          border: none;
+          background: color-mix(in srgb, var(--surface-2) 60%, transparent);
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
           outline: none;
         }
         .input:focus {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(217, 167, 173, 0.35);
+          box-shadow: 0 0 0 2px var(--ring);
         }
       `}</style>
     </div>

@@ -75,10 +75,7 @@ export default function MyBookings() {
   return (
     <div className="mt-8">
       {/* Хайх маягт */}
-      <form
-        action={handleSearch}
-        className="rounded-2xl border border-border bg-surface p-6"
-      >
+      <form action={handleSearch} className="card p-6 sm:p-7">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-foreground">
@@ -89,7 +86,7 @@ export default function MyBookings() {
               required
               maxLength={6}
               placeholder="K7F2QX"
-              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm uppercase tracking-[0.2em] outline-none focus:border-primary"
+              className="w-full rounded-xl bg-surface-2/60 px-3.5 py-2.5 text-sm uppercase tracking-[0.2em] outline-none focus:ring-2 focus:ring-ring/60"
             />
           </label>
           <label className="block">
@@ -101,7 +98,7 @@ export default function MyBookings() {
               required
               inputMode="tel"
               placeholder="9911-2233"
-              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+              className="w-full rounded-xl bg-surface-2/60 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
             />
           </label>
         </div>
@@ -124,7 +121,7 @@ export default function MyBookings() {
         {loading ? (
           <p className="text-sm text-muted">Ачаалж байна…</p>
         ) : bookings.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-8 text-center">
+          <div className="rounded-3xl bg-surface-2/50 p-10 text-center">
             <p className="text-muted">
               Энэ төхөөрөмж дээр хадгалагдсан захиалга алга байна.
             </p>
@@ -166,14 +163,10 @@ function BookingCard({
     booking.status === "no_show";
 
   return (
-    <div
-      className={`rounded-2xl border p-6 ${
-        past ? "border-border bg-surface-2/40" : "border-border bg-surface"
-      }`}
-    >
+    <div className={`card p-6 sm:p-7 ${past ? "opacity-75" : ""}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-2xl">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-2xl">
             {booking.serviceEmoji}
           </span>
           <div>
@@ -199,7 +192,7 @@ function BookingCard({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="rounded-full border border-rose-300 px-5 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+            className="rounded-full bg-rose-50 px-5 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-100 disabled:opacity-50"
           >
             {busy ? "Цуцалж байна…" : "Захиалга цуцлах"}
           </button>

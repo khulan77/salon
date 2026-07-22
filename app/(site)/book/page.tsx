@@ -18,7 +18,7 @@ export default async function BookPage({
     <div className="bg-warm min-h-[70vh]">
       <div className="mx-auto w-full max-w-3xl px-5 py-16">
         <header className="text-center">
-          <p className="text-sm font-medium text-primary">Онлайн захиалга</p>
+          <p className="eyebrow">Онлайн захиалга</p>
           <h1 className="mt-2 font-display text-4xl font-semibold text-foreground">
             Цаг захиалах
           </h1>

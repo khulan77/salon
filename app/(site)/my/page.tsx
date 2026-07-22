@@ -6,7 +6,7 @@ export default function MyBookingsPage() {
   return (
     <div className="mx-auto w-full max-w-2xl px-5 py-16">
       <header>
-        <p className="text-sm font-medium text-primary">Захиалга шалгах</p>
+        <p className="eyebrow">Захиалга шалгах</p>
         <h1 className="mt-2 font-display text-4xl font-semibold text-foreground">
           Миний захиалга
         </h1>

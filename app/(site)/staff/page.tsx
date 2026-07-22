@@ -14,7 +14,7 @@ export default async function StaffPage() {
     <div className="bg-warm">
       <div className="mx-auto w-full max-w-6xl px-5 py-16">
         <header className="max-w-2xl">
-          <p className="text-sm font-medium text-primary">Манай баг</p>
+          <p className="eyebrow">Манай баг</p>
           <h1 className="mt-2 font-display text-4xl font-semibold text-foreground">
             Туршлагатай мастерууд
           </h1>
