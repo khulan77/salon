@@ -1,4 +1,4 @@
-import { getBookings, getServices, getStaff } from "@/app/lib/db";
+import { getBookings, getLocations, getPackages, getServices, getStaff } from "@/app/lib/db";
 import { effectivePrice, formatDate, formatPrice } from "@/app/lib/format";
 import { deleteBookingAction, setBookingStatusAction } from "@/app/lib/actions";
 import { StatusBadge } from "@/app/components/status-badge";
@@ -13,11 +13,14 @@ const ACTIONS: { status: BookingStatus; label: string }[] = [
 ];
 
 export default async function AdminBookingsPage() {
-  const [bookings, services, staff] = await Promise.all([
+  const [bookings, services, staff, locations, packages] = await Promise.all([
     getBookings(),
     getServices(),
     getStaff(),
+    getLocations(),
+    getPackages(),
   ]);
+  const hasBranches = locations.length > 0;
 
   return (
     <div>
@@ -32,7 +35,16 @@ export default async function AdminBookingsPage() {
         <div className="mt-8 space-y-4">
           {bookings.map((b) => {
             const svc = services.find((s) => s.id === b.serviceId);
+            const pkg = b.packageId ? packages.find((p) => p.id === b.packageId) : undefined;
             const stf = staff.find((s) => s.id === b.staffId);
+            const locId = b.locationId ?? stf?.locationId;
+            const loc = locations.find((l) => l.id === locId);
+            const itemLabel = pkg
+              ? `${pkg.emoji} ${pkg.name} (багц)`
+              : svc
+                ? `${svc.emoji} ${svc.name}`
+                : "—";
+            const itemPrice = pkg ? pkg.price : svc ? effectivePrice(svc) : 0;
             return (
               <div
                 key={b.id}
@@ -68,9 +80,12 @@ export default async function AdminBookingsPage() {
                 </div>
 
                 <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
-                  <Info label="Үйлчилгээ" value={svc ? `${svc.emoji} ${svc.name}` : "—"} />
+                  <Info label={pkg ? "Багц" : "Үйлчилгээ"} value={itemLabel} />
                   <Info label="Мастер" value={stf ? `${stf.emoji} ${stf.name}` : "—"} />
-                  <Info label="Төлбөр" value={svc ? formatPrice(effectivePrice(svc)) : "—"} />
+                  <Info label="Төлбөр" value={itemPrice ? formatPrice(itemPrice) : "—"} />
+                  {hasBranches && (
+                    <Info label="Салбар" value={loc ? `🏢 ${loc.name || loc.address}` : "—"} />
+                  )}
                 </div>
 
                 {b.note && (

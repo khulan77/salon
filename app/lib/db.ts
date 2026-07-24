@@ -1,7 +1,15 @@
 import { randomUUID } from "crypto";
 import { supabaseService } from "./supabase/service";
 import { salonNowMinutes, salonToday } from "./time";
-import type { Booking, Review, Service, Settings, Staff } from "./types";
+import type {
+  Booking,
+  Location,
+  Review,
+  Service,
+  ServicePackage,
+  Settings,
+  Staff,
+} from "./types";
 
 const DEFAULT_SETTINGS: Settings = {
   openTime: "10:00",
@@ -79,6 +87,7 @@ const staffFromRow = (r: any): Staff => ({
   emoji: r.emoji ?? "💇‍♀️",
   imageUrl: r.image_url ?? undefined,
   email: r.email ?? undefined,
+  locationId: r.location_id ?? undefined,
   active: r.active ?? true,
 });
 const staffToRow = (s: Partial<Staff>) => ({
@@ -89,7 +98,54 @@ const staffToRow = (s: Partial<Staff>) => ({
   ...(s.emoji !== undefined && { emoji: s.emoji }),
   ...(s.imageUrl !== undefined && { image_url: s.imageUrl ?? null }),
   ...(s.email !== undefined && { email: s.email ?? null }),
+  ...(s.locationId !== undefined && { location_id: s.locationId ?? null }),
   ...(s.active !== undefined && { active: s.active }),
+});
+
+const locationFromRow = (r: any): Location => ({
+  id: r.id,
+  name: r.name ?? "",
+  address: r.address ?? "",
+  phone: r.phone ?? "",
+  mapCoords: r.map_coords ?? "",
+  openTime: r.open_time ?? DEFAULT_SETTINGS.openTime,
+  closeTime: r.close_time ?? DEFAULT_SETTINGS.closeTime,
+  slotMinutes: r.slot_minutes ?? DEFAULT_SETTINGS.slotMinutes,
+  closedDays: r.closed_days ?? [],
+  sortOrder: r.sort_order ?? 0,
+  active: r.active ?? true,
+});
+const locationToRow = (l: Partial<Location>) => ({
+  ...(l.name !== undefined && { name: l.name }),
+  ...(l.address !== undefined && { address: l.address }),
+  ...(l.phone !== undefined && { phone: l.phone }),
+  ...(l.mapCoords !== undefined && { map_coords: l.mapCoords }),
+  ...(l.openTime !== undefined && { open_time: l.openTime }),
+  ...(l.closeTime !== undefined && { close_time: l.closeTime }),
+  ...(l.slotMinutes !== undefined && { slot_minutes: l.slotMinutes }),
+  ...(l.closedDays !== undefined && { closed_days: l.closedDays }),
+  ...(l.sortOrder !== undefined && { sort_order: l.sortOrder }),
+  ...(l.active !== undefined && { active: l.active }),
+});
+
+const packageFromRow = (r: any): ServicePackage => ({
+  id: r.id,
+  name: r.name,
+  description: r.description ?? "",
+  serviceIds: r.service_ids ?? [],
+  price: r.price ?? 0,
+  emoji: r.emoji ?? "🎁",
+  sortOrder: r.sort_order ?? 0,
+  active: r.active ?? true,
+});
+const packageToRow = (p: Partial<ServicePackage>) => ({
+  ...(p.name !== undefined && { name: p.name }),
+  ...(p.description !== undefined && { description: p.description }),
+  ...(p.serviceIds !== undefined && { service_ids: p.serviceIds }),
+  ...(p.price !== undefined && { price: p.price }),
+  ...(p.emoji !== undefined && { emoji: p.emoji }),
+  ...(p.sortOrder !== undefined && { sort_order: p.sortOrder }),
+  ...(p.active !== undefined && { active: p.active }),
 });
 
 const bookingFromRow = (r: any): Booking => ({
@@ -103,6 +159,8 @@ const bookingFromRow = (r: any): Booking => ({
   note: r.note ?? "",
   status: r.status,
   code: r.code ?? "",
+  locationId: r.location_id ?? undefined,
+  packageId: r.package_id ?? undefined,
   createdAt: r.created_at,
 });
 
@@ -224,6 +282,120 @@ export async function deleteStaff(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/* ---------------- Locations (салбарууд) ---------------- */
+
+/** Хуучин нэг хаягтай салон — settings-ээс синтетик "loc-main" салбар үүсгэнэ. */
+const LEGACY_LOCATION_ID = "loc-main";
+function legacyLocationFromSettings(s: Settings): Location {
+  return {
+    id: LEGACY_LOCATION_ID,
+    name: "",
+    address: s.address,
+    phone: s.phone,
+    mapCoords: s.mapCoords,
+    openTime: s.openTime,
+    closeTime: s.closeTime,
+    slotMinutes: s.slotMinutes,
+    closedDays: s.closedDays,
+    sortOrder: 0,
+    active: true,
+  };
+}
+
+export async function getLocations(opts?: { activeOnly?: boolean }): Promise<Location[]> {
+  let q = db().from("locations").select("*").order("sort_order").order("name");
+  if (opts?.activeOnly) q = q.eq("active", true);
+  const { data, error } = await q;
+  return must(data, error).map(locationFromRow);
+}
+
+export async function getLocation(id: string): Promise<Location | undefined> {
+  const { data } = await db().from("locations").select("*").eq("id", id).maybeSingle();
+  return data ? locationFromRow(data) : undefined;
+}
+
+/**
+ * Сайтад харуулах салбарууд. Салбар бүртгээгүй хуучин салонд settings-ээс
+ * ганц синтетик салбар буцаана — ингэснээр migration хийхээс өмнө ч сайт унахгүй.
+ */
+export async function getEffectiveLocations(): Promise<Location[]> {
+  const locations = await getLocations({ activeOnly: true });
+  if (locations.length > 0) return locations;
+  return [legacyLocationFromSettings(await getSettings())];
+}
+
+/** Сонгосон id-д тохирох салбар, олдохгүй бол эхнийх. Салбар байхгүй бол legacy. */
+export async function getEffectiveLocation(id?: string): Promise<Location> {
+  const locations = await getEffectiveLocations();
+  return locations.find((l) => l.id === id) ?? locations[0];
+}
+
+export async function createLocation(input: Omit<Location, "id">): Promise<Location> {
+  const id = `loc-${randomUUID().slice(0, 8)}`;
+  const { error } = await db().from("locations").insert({ id, ...locationToRow(input) });
+  if (error) throw new Error(error.message);
+  return { ...input, id };
+}
+
+export async function updateLocation(
+  id: string,
+  patch: Partial<Omit<Location, "id">>,
+): Promise<void> {
+  const { error } = await db().from("locations").update(locationToRow(patch)).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteLocation(id: string): Promise<void> {
+  const { error } = await db().from("locations").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/* ---------------- Packages (багц) ---------------- */
+
+export async function getPackages(opts?: { activeOnly?: boolean }): Promise<ServicePackage[]> {
+  let q = db().from("packages").select("*").order("sort_order").order("price");
+  if (opts?.activeOnly) q = q.eq("active", true);
+  const { data, error } = await q;
+  return must(data, error).map(packageFromRow);
+}
+
+export async function getPackage(id: string): Promise<ServicePackage | undefined> {
+  const { data } = await db().from("packages").select("*").eq("id", id).maybeSingle();
+  return data ? packageFromRow(data) : undefined;
+}
+
+export async function createPackage(
+  input: Omit<ServicePackage, "id">,
+): Promise<ServicePackage> {
+  const id = `pkg-${randomUUID().slice(0, 8)}`;
+  const { error } = await db().from("packages").insert({ id, ...packageToRow(input) });
+  if (error) throw new Error(error.message);
+  return { ...input, id };
+}
+
+export async function updatePackage(
+  id: string,
+  patch: Partial<Omit<ServicePackage, "id">>,
+): Promise<void> {
+  const { error } = await db().from("packages").update(packageToRow(patch)).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deletePackage(id: string): Promise<void> {
+  const { error } = await db().from("packages").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/** Багцын нийт үргэлжлэх хугацаа = багтах үйлчилгээнүүдийн хугацааны нийлбэр. */
+export async function getPackageDuration(pkg: ServicePackage): Promise<number> {
+  const services = await getServices();
+  const total = pkg.serviceIds.reduce((sum, id) => {
+    const svc = services.find((s) => s.id === id);
+    return sum + (svc?.durationMin ?? 0);
+  }, 0);
+  return Math.max(total, 15);
+}
+
 /* ---------------- Bookings ---------------- */
 
 export async function getBookings(): Promise<Booking[]> {
@@ -268,6 +440,8 @@ export async function createBooking(
     note: input.note,
     status,
     code,
+    location_id: input.locationId ?? null,
+    package_id: input.packageId ?? null,
     created_at: createdAt,
   });
   if (error) {
@@ -316,39 +490,52 @@ export async function deleteBooking(id: string): Promise<void> {
 
 /* ---------------- Availability ---------------- */
 
-export async function getAvailableSlots(
-  serviceId: string,
+/**
+ * Тухайн ажилтан/өдөр/хугацаанд эхлэх боломжтой цагууд. Үйлчилгээ болон
+ * багц хоёулаа үүнийг ашиглана — ялгаа нь зөвхөн үргэлжлэх хугацаа (duration).
+ */
+async function computeAvailableSlots(
   staffId: string,
   date: string,
+  durationMin: number,
 ): Promise<string[]> {
-  const settings = await getSettings();
+  // Ажлын цагийг тухайн ажилтны хамаарах салбараас авна — салбар бүр
+  // өөрийн нээх/хаах цаг, амралтын өдөртэй. Салбаргүй бол эхний салбар/settings.
+  const staff = await getStaffMember(staffId);
+  const hours = await getEffectiveLocation(staff?.locationId);
 
   // Гаригийг UTC-ээр уншина — календарийн огнооны гариг цагийн бүсээс
   // хамаарахгүй тул серверийн бүс юу ч байсан ижил хариу өгнө.
   const day = new Date(date + "T00:00:00Z");
   if (Number.isNaN(day.getTime())) return [];
-  if (settings.closedDays.includes(day.getUTCDay())) return [];
+  if (hours.closedDays.includes(day.getUTCDay())) return [];
 
-  const service = await getService(serviceId);
-  const duration = service?.durationMin ?? settings.slotMinutes;
-
-  const open = toMinutes(settings.openTime);
-  const close = toMinutes(settings.closeTime);
-  const step = Math.max(5, settings.slotMinutes);
+  const duration = Math.max(5, durationMin || hours.slotMinutes);
+  const open = toMinutes(hours.openTime);
+  const close = toMinutes(hours.closeTime);
+  const step = Math.max(5, hours.slotMinutes);
 
   // Existing bookings for this staff/date as [start, end) minute intervals.
   const { data: rows } = await db()
     .from("bookings")
-    .select("time, service_id, status")
+    .select("time, service_id, package_id, status")
     .eq("staff_id", staffId)
     .eq("date", date)
     .neq("status", "cancelled");
 
-  const services = await getServices();
+  const [services, packages] = await Promise.all([getServices(), getPackages()]);
+  const packageDuration = (pkg: ServicePackage) =>
+    pkg.serviceIds.reduce(
+      (sum, id) => sum + (services.find((s) => s.id === id)?.durationMin ?? 0),
+      0,
+    );
   const booked = (rows ?? []).map((b) => {
     const start = toMinutes(b.time);
+    // Багц захиалгын хугацаа = багтах үйлчилгээнүүдийн нийлбэр.
+    const pkg = b.package_id ? packages.find((p) => p.id === b.package_id) : undefined;
     const svc = services.find((s) => s.id === b.service_id);
-    return [start, start + (svc?.durationMin ?? step)] as const;
+    const dur = pkg ? packageDuration(pkg) : (svc?.durationMin ?? step);
+    return [start, start + Math.max(5, dur)] as const;
   });
 
   // Салоны цагаар тооцно — сервер UTC дээр ажиллаж байсан ч өнгөрсөн цаг
@@ -363,6 +550,26 @@ export async function getAvailableSlots(
     if (!overlaps) slots.push(toHHMM(t));
   }
   return slots;
+}
+
+export async function getAvailableSlots(
+  serviceId: string,
+  staffId: string,
+  date: string,
+): Promise<string[]> {
+  const service = await getService(serviceId);
+  return computeAvailableSlots(staffId, date, service?.durationMin ?? 0);
+}
+
+/** Багцаар захиалахад — нийт хугацааг багцын үйлчилгээнүүдээс тооцно. */
+export async function getPackageAvailableSlots(
+  packageId: string,
+  staffId: string,
+  date: string,
+): Promise<string[]> {
+  const pkg = await getPackage(packageId);
+  if (!pkg) return [];
+  return computeAvailableSlots(staffId, date, await getPackageDuration(pkg));
 }
 
 /* ---------------- Reviews ---------------- */

@@ -1,19 +1,8 @@
+import Link from "next/link";
 import { getSettings } from "@/app/lib/db";
 import { updateSettingsAction } from "@/app/lib/actions";
 
 export const metadata = { title: "Тохиргоо" };
-
-const WEEKDAYS = [
-  { n: 1, label: "Даваа" },
-  { n: 2, label: "Мягмар" },
-  { n: 3, label: "Лхагва" },
-  { n: 4, label: "Пүрэв" },
-  { n: 5, label: "Баасан" },
-  { n: 6, label: "Бямба" },
-  { n: 0, label: "Ням" },
-];
-
-const SLOT_OPTIONS = [15, 20, 30, 45, 60];
 
 export default async function AdminSettingsPage() {
   const settings = await getSettings();
@@ -22,8 +11,11 @@ export default async function AdminSettingsPage() {
     <div>
       <h1 className="font-display text-3xl font-semibold text-foreground">Тохиргоо</h1>
       <p className="mt-1 text-muted">
-        Салоны мэдээлэл, ажлын цаг ба амралтын өдрийг тохируулна. Энд оруулсан
-        мэдээлэл сайт даяар харагдана.
+        Салоны ерөнхий мэдээлэл. Хаяг, утас, ажлын цаг нь салбар бүрт хамаарах тул{" "}
+        <Link href="/admin/locations" className="text-primary hover:underline">
+          Салбарууд
+        </Link>{" "}
+        хуудаснаас засагдана.
       </p>
 
       <form
@@ -35,7 +27,7 @@ export default async function AdminSettingsPage() {
             Салоны мэдээлэл
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Нэр, холбоо барих мэдээлэл нь сайтын толгой, хөл, нүүр хуудсанд гарна.
+            Нэр болон танилцуулга нь сайтын толгой, хөл, нүүр хуудсанд гарна.
           </p>
 
           <div className="mt-4 space-y-4">
@@ -64,19 +56,7 @@ export default async function AdminSettingsPage() {
                   className="sinput"
                 />
               </label>
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-foreground">
-                  Утасны дугаар
-                </span>
-                <input
-                  name="phone"
-                  defaultValue={settings.phone}
-                  maxLength={40}
-                  placeholder="+976 8000-0000"
-                  className="sinput"
-                />
-              </label>
-              <label className="block">
+              <label className="block sm:col-span-2">
                 <span className="mb-1.5 block text-sm font-medium text-foreground">
                   И-мэйл
                 </span>
@@ -91,24 +71,6 @@ export default async function AdminSettingsPage() {
             </div>
 
             <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-foreground">Хаяг</span>
-              <input
-                name="address"
-                defaultValue={settings.address}
-                maxLength={200}
-                placeholder="Улаанбаатар, Сүхбаатар дүүрэг, 1-р хороо"
-                className="sinput"
-              />
-              <span className="mt-1.5 block text-xs text-muted">
-                {!settings.address
-                  ? "Хаягаа бичээд хадгалахад нүүр хуудсанд газрын зураг өөрөө гарна."
-                  : settings.mapCoords
-                    ? "✓ Байршил олдсон — нүүр хуудсанд газрын зураг харагдаж байна."
-                    : "Энэ хаягаар байршил олдсонгүй тул газрын зураг харагдахгүй байна. Дүүрэг, гудамжаа нэмж бичээд дахин хадгалж үзнэ үү."}
-              </span>
-            </label>
-
-            <label className="block">
               <span className="mb-1.5 block text-sm font-medium text-foreground">
                 Бидний тухай
               </span>
@@ -121,66 +83,6 @@ export default async function AdminSettingsPage() {
                 className="sinput resize-none"
               />
             </label>
-          </div>
-        </section>
-
-        <section>
-          <h2 className="font-display text-lg font-semibold text-foreground">Ажлын цаг</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-foreground">Нээх</span>
-              <input
-                type="time"
-                name="openTime"
-                defaultValue={settings.openTime}
-                className="sinput"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-foreground">Хаах</span>
-              <input
-                type="time"
-                name="closeTime"
-                defaultValue={settings.closeTime}
-                className="sinput"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-foreground">
-                Цагийн алхам
-              </span>
-              <select name="slotMinutes" defaultValue={settings.slotMinutes} className="sinput">
-                {SLOT_OPTIONS.map((m) => (
-                  <option key={m} value={m}>
-                    {m} мин
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </section>
-
-        <section>
-          <h2 className="font-display text-lg font-semibold text-foreground">
-            Амралтын өдрүүд
-          </h2>
-          <p className="mt-1 text-sm text-muted">Тэмдэглэсэн өдрүүдэд захиалга авахгүй.</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {WEEKDAYS.map((d) => (
-              <label
-                key={d.n}
-                className="flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-background px-3.5 py-2 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary-soft"
-              >
-                <input
-                  type="checkbox"
-                  name="closedDays"
-                  value={d.n}
-                  defaultChecked={settings.closedDays.includes(d.n)}
-                  className="h-4 w-4 accent-[var(--primary)]"
-                />
-                {d.label}
-              </label>
-            ))}
           </div>
         </section>
 

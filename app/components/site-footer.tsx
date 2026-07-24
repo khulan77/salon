@@ -1,9 +1,18 @@
 import Link from "next/link";
-import type { Settings } from "@/app/lib/types";
+import type { Location, Settings } from "@/app/lib/types";
 import { formatHours } from "@/app/lib/format";
 
-export default function SiteFooter({ settings }: { settings: Settings }) {
-  const hours = formatHours(settings);
+export default function SiteFooter({
+  settings,
+  location,
+}: {
+  settings: Settings;
+  location?: Location;
+}) {
+  // Холбоо барих мэдээллийг сонгосон салбараас авна (байхгүй бол settings).
+  const address = location?.address ?? settings.address;
+  const phone = location?.phone ?? settings.phone;
+  const hours = formatHours(location ?? settings);
 
   return (
     <footer className="mt-24 border-t border-border bg-surface-2/60">
@@ -34,8 +43,9 @@ export default function SiteFooter({ settings }: { settings: Settings }) {
         <div>
           <h4 className="text-sm font-semibold text-foreground">Холбоо барих</h4>
           <ul className="mt-4 space-y-2.5 text-sm text-muted">
-            {settings.address && <li>📍 {settings.address}</li>}
-            {settings.phone && <li>📞 {settings.phone}</li>}
+            {location?.name && <li className="font-medium text-foreground">🏢 {location.name}</li>}
+            {address && <li>📍 {address}</li>}
+            {phone && <li>📞 {phone}</li>}
             {settings.email && <li>✉️ {settings.email}</li>}
           </ul>
         </div>

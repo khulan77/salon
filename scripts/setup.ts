@@ -48,10 +48,19 @@ async function main() {
     { id: "svc-lash", name: "Сормуус суулгац", description: "Байгалийн болон өтгөн сормуусны суулгац, засвар.", category: "Гоо сайхан", duration_min: 90, price: 90000, emoji: "👁️", active: true },
   ]);
 
+  await seedTable("locations", [
+    { id: "loc-main", name: "Төв салбар", address: "", phone: "", open_time: "10:00", close_time: "20:00", slot_minutes: 30, closed_days: [], sort_order: 0, active: true },
+  ]);
+
   await seedTable("staff", [
-    { id: "stf-saraa", name: "Сараа", title: "Ахлах стилист", bio: "10 гаруй жилийн туршлагатай, олон улсын сертификаттай үсчин.", service_ids: ["svc-haircut", "svc-color"], emoji: "💇‍♀️", active: true },
-    { id: "stf-bolor", name: "Болор", title: "Хумсны мастер", bio: "Nail art-ын мэргэжилтэн. Нарийн дизайн, цэвэрхэн ажил.", service_ids: ["svc-manicure"], emoji: "💅", active: true },
-    { id: "stf-nomin", name: "Номин", title: "Гоо сайхны мэргэжилтэн", bio: "Арьс арчилгаа, нүүр будалт, сормуусны чиглэлээр мэргэшсэн.", service_ids: ["svc-facial", "svc-makeup", "svc-lash"], emoji: "🌸", active: true },
+    { id: "stf-saraa", name: "Сараа", title: "Ахлах стилист", bio: "10 гаруй жилийн туршлагатай, олон улсын сертификаттай үсчин.", service_ids: ["svc-haircut", "svc-color"], emoji: "💇‍♀️", location_id: "loc-main", active: true },
+    { id: "stf-bolor", name: "Болор", title: "Хумсны мастер", bio: "Nail art-ын мэргэжилтэн. Нарийн дизайн, цэвэрхэн ажил.", service_ids: ["svc-manicure"], emoji: "💅", location_id: "loc-main", active: true },
+    { id: "stf-nomin", name: "Номин", title: "Гоо сайхны мэргэжилтэн", bio: "Арьс арчилгаа, нүүр будалт, сормуусны чиглэлээр мэргэшсэн.", service_ids: ["svc-facial", "svc-makeup", "svc-lash"], emoji: "🌸", location_id: "loc-main", active: true },
+  ]);
+
+  await seedTable("packages", [
+    { id: "pkg-bridal", name: "Сүйн бүсгүйн багц", description: "Онцгой өдрийн иж бүрэн бэлтгэл: үс засалт, нүүр будалт, гар засал.", service_ids: ["svc-haircut", "svc-makeup", "svc-manicure"], price: 150000, emoji: "👰", sort_order: 0, active: true },
+    { id: "pkg-glow", name: "Гэрэлт арьс багц", description: "Нүүрний арчилгаа болон сормуус суулгацын хосолсон багц.", service_ids: ["svc-facial", "svc-lash"], price: 155000, emoji: "✨", sort_order: 1, active: true },
   ]);
 
   await seedTable("reviews", [

@@ -1,11 +1,15 @@
-import { getServices } from "@/app/lib/db";
+import { getPackages, getServices } from "@/app/lib/db";
 import ServiceCard from "@/app/components/service-card";
+import PackageCard from "@/app/components/package-card";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Үйлчилгээ" };
 
 export default async function ServicesPage() {
-  const services = await getServices({ activeOnly: true });
+  const [services, packages] = await Promise.all([
+    getServices({ activeOnly: true }),
+    getPackages({ activeOnly: true }),
+  ]);
   const categories = Array.from(new Set(services.map((s) => s.category)));
 
   return (
@@ -21,6 +25,24 @@ export default async function ServicesPage() {
             сонгоод цагаа захиалаарай.
           </p>
         </header>
+
+        {packages.length > 0 && (
+          <section className="mt-14">
+            <div className="flex items-center gap-2">
+              <h2 className="font-display text-2xl font-semibold text-foreground">
+                🎁 Хямдралтай багц
+              </h2>
+            </div>
+            <p className="mt-1 text-sm text-muted">
+              Хэд хэдэн үйлчилгээг нэг дор авбал илүү хямд.
+            </p>
+            <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {packages.map((p) => (
+                <PackageCard key={p.id} pkg={p} services={services} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {categories.map((cat) => (
           <section key={cat} className="mt-14">

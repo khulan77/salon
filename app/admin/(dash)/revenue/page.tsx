@@ -1,6 +1,7 @@
-import { getBookings, getServices, getStaff } from "@/app/lib/db";
+import { getBookings, getPackages, getServices, getStaff } from "@/app/lib/db";
 import { effectivePrice, formatPrice } from "@/app/lib/format";
 import { salonToday } from "@/app/lib/time";
+import type { Booking } from "@/app/lib/types";
 
 export const metadata = { title: "Орлого" };
 
@@ -10,23 +11,25 @@ const MONTHS = [
 ];
 
 export default async function AdminRevenuePage() {
-  const [bookings, services, staff] = await Promise.all([
+  const [bookings, services, staff, packages] = await Promise.all([
     getBookings(),
     getServices(),
     getStaff(),
+    getPackages(),
   ]);
 
-  // Орлогыг хямдрал тооцсон бодит үнээр бодно.
-  const priceOf = (serviceId: string) => {
-    const svc = services.find((s) => s.id === serviceId);
+  // Орлогыг хямдрал тооцсон бодит үнээр бодно. Багц захиалга бол багцын үнэ.
+  const priceOf = (b: Booking) => {
+    if (b.packageId) return packages.find((p) => p.id === b.packageId)?.price ?? 0;
+    const svc = services.find((s) => s.id === b.serviceId);
     return svc ? effectivePrice(svc) : 0;
   };
 
   const done = bookings.filter((b) => b.status === "done");
   const confirmed = bookings.filter((b) => b.status === "confirmed");
 
-  const realized = done.reduce((sum, b) => sum + priceOf(b.serviceId), 0);
-  const expected = confirmed.reduce((sum, b) => sum + priceOf(b.serviceId), 0);
+  const realized = done.reduce((sum, b) => sum + priceOf(b), 0);
+  const expected = confirmed.reduce((sum, b) => sum + priceOf(b), 0);
 
   // Сарын зааг ч салоны цагаар — UTC сервер дээр сарын эхний өдөр
   // өмнөх сар руу орох эрсдэлгүй.
@@ -34,7 +37,7 @@ export default async function AdminRevenuePage() {
   const monthIndex = Number(salonMonth.slice(5, 7)) - 1;
   const thisMonth = done
     .filter((b) => b.date.startsWith(salonMonth))
-    .reduce((sum, b) => sum + priceOf(b.serviceId), 0);
+    .reduce((sum, b) => sum + priceOf(b), 0);
 
   // Breakdown by service (realized).
   const byService = services
@@ -59,7 +62,7 @@ export default async function AdminRevenuePage() {
         emoji: m.emoji,
         image: m.imageUrl,
         count: rows.length,
-        revenue: rows.reduce((sum, b) => sum + priceOf(b.serviceId), 0),
+        revenue: rows.reduce((sum, b) => sum + priceOf(b), 0),
       };
     })
     .filter((r) => r.count > 0)
@@ -69,7 +72,7 @@ export default async function AdminRevenuePage() {
   const monthMap = new Map<string, number>();
   for (const b of done) {
     const key = b.date.slice(0, 7);
-    monthMap.set(key, (monthMap.get(key) ?? 0) + priceOf(b.serviceId));
+    monthMap.set(key, (monthMap.get(key) ?? 0) + priceOf(b));
   }
   const months = Array.from(monthMap.entries()).sort().slice(-6);
   const maxMonth = Math.max(1, ...months.map(([, v]) => v));

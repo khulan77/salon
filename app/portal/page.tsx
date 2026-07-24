@@ -1,10 +1,10 @@
 import { getSession } from "@/app/lib/auth";
-import { getBookings, getServices } from "@/app/lib/db";
+import { getBookings, getPackages, getServices } from "@/app/lib/db";
 import { staffSetBookingStatusAction } from "@/app/lib/actions";
 import { effectivePrice, formatDate, formatDuration, formatPrice } from "@/app/lib/format";
 import { salonToday } from "@/app/lib/time";
 import { StatusBadge } from "@/app/components/status-badge";
-import type { BookingStatus } from "@/app/lib/types";
+import type { Booking, BookingStatus } from "@/app/lib/types";
 
 const STAFF_ACTIONS: { status: BookingStatus; label: string }[] = [
   { status: "confirmed", label: "Батлах" },
@@ -20,10 +20,30 @@ export default async function PortalPage() {
   // Layout guarantees a staff session, but guard for types.
   if (!session || session.role !== "staff") return null;
 
-  const [allBookings, services] = await Promise.all([getBookings(), getServices()]);
+  const [allBookings, services, packages] = await Promise.all([
+    getBookings(),
+    getServices(),
+    getPackages(),
+  ]);
   const mine = allBookings.filter(
     (b) => b.staffId === session.staffId && b.status !== "cancelled",
   );
+
+  // Захиалгын үйлчилгээ эсвэл багцыг нэг хэлбэрт хөрвүүлнэ.
+  const itemOf = (b: Booking) => {
+    if (b.packageId) {
+      const p = packages.find((x) => x.id === b.packageId);
+      if (!p) return null;
+      const durationMin = p.serviceIds.reduce(
+        (sum, id) => sum + (services.find((s) => s.id === id)?.durationMin ?? 0),
+        0,
+      );
+      return { emoji: p.emoji, name: `${p.name} (багц)`, durationMin, price: p.price };
+    }
+    const s = services.find((x) => x.id === b.serviceId);
+    if (!s) return null;
+    return { emoji: s.emoji, name: s.name, durationMin: s.durationMin, price: effectivePrice(s) };
+  };
 
   const today = salonToday();
   const upcoming = mine
@@ -33,7 +53,6 @@ export default async function PortalPage() {
     .filter((b) => b.date < today || b.status === "done")
     .sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
 
-  const serviceOf = (id: string) => services.find((s) => s.id === id);
   const todayCount = mine.filter((b) => b.date === today).length;
 
   return (
@@ -54,14 +73,14 @@ export default async function PortalPage() {
           <Empty>Одоогоор товлосон захиалга алга байна.</Empty>
         ) : (
           upcoming.map((b) => {
-            const svc = serviceOf(b.serviceId);
+            const item = itemOf(b);
             return (
               <div key={b.id} className="rounded-2xl border border-border bg-surface p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-medium text-foreground">
-                        {svc ? `${svc.emoji} ${svc.name}` : "Үйлчилгээ"}
+                        {item ? `${item.emoji} ${item.name}` : "Үйлчилгээ"}
                       </h3>
                       <StatusBadge status={b.status} />
                     </div>
@@ -76,9 +95,9 @@ export default async function PortalPage() {
                   <div className="text-right text-sm">
                     <div className="font-medium text-foreground">{formatDate(b.date)}</div>
                     <div className="text-muted">⏰ {b.time}</div>
-                    {svc && (
+                    {item && (
                       <div className="mt-1 text-xs text-muted">
-                        {formatDuration(svc.durationMin)} · {formatPrice(effectivePrice(svc))}
+                        {formatDuration(item.durationMin)} · {formatPrice(item.price)}
                       </div>
                     )}
                   </div>
@@ -111,14 +130,14 @@ export default async function PortalPage() {
       {past.length > 0 && (
         <Section title="Өнгөрсөн / дууссан">
           {past.slice(0, 20).map((b) => {
-            const svc = serviceOf(b.serviceId);
+            const item = itemOf(b);
             return (
               <div
                 key={b.id}
                 className="flex items-center justify-between rounded-xl border border-border bg-surface px-5 py-3 text-sm"
               >
                 <span className="text-foreground">
-                  {svc ? `${svc.emoji} ${svc.name}` : "Үйлчилгээ"} · {b.customerName}
+                  {item ? `${item.emoji} ${item.name}` : "Үйлчилгээ"} · {b.customerName}
                 </span>
                 <span className="text-muted">
                   {formatDate(b.date)} · {b.time}

@@ -27,6 +27,24 @@ export function hasSale(service: { price: number; salePercent?: number }): boole
     effectivePrice(service) < service.price;
 }
 
+/**
+ * Багцын үнийн задаргаа: багтах үйлчилгээнүүдийн жирийн нийлбэр, багцын үнэ,
+ * хэмнэлт (₮ болон %), нийт хугацаа. Хэмнэлт сөрөг гарвал 0 болгоно.
+ */
+export function packageTotals(
+  pkg: { serviceIds: string[]; price: number },
+  services: { id: string; price: number; salePercent?: number; durationMin: number }[],
+): { regular: number; price: number; saved: number; savePercent: number; durationMin: number } {
+  const items = pkg.serviceIds
+    .map((id) => services.find((s) => s.id === id))
+    .filter((s): s is NonNullable<typeof s> => Boolean(s));
+  const regular = items.reduce((sum, s) => sum + effectivePrice(s), 0);
+  const durationMin = items.reduce((sum, s) => sum + s.durationMin, 0);
+  const saved = Math.max(0, regular - pkg.price);
+  const savePercent = regular > 0 ? Math.round((saved / regular) * 100) : 0;
+  return { regular, price: pkg.price, saved, savePercent, durationMin };
+}
+
 export function formatDuration(min: number): string {
   if (min < 60) return `${min} мин`;
   const h = Math.floor(min / 60);

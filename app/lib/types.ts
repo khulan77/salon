@@ -10,6 +10,21 @@ export type Service = {
   active: boolean;
 };
 
+/** Салбар (хаяг). Салон нэгээс олон салбартай байж болно. */
+export type Location = {
+  id: string;
+  name: string; // товч нэр, ж: "Төв салбар", "Зайсан салбар"
+  address: string;
+  phone: string;
+  mapCoords: string; // хаягаас автоматаар олдсон "47.9185,106.9177"
+  openTime: string; // "10:00"
+  closeTime: string; // "20:00"
+  slotMinutes: number; // цагийн алхам
+  closedDays: number[]; // амардаг гаригууд, 0=Ням … 6=Бямба
+  sortOrder: number; // жагсаалтын дараалал
+  active: boolean;
+};
+
 export type Staff = {
   id: string;
   name: string;
@@ -19,6 +34,19 @@ export type Staff = {
   emoji: string; // fallback avatar when no photo
   imageUrl?: string; // uploaded photo path, e.g. /uploads/abc.jpg
   email?: string; // login email — matches their Supabase Auth account
+  locationId?: string; // хамаарах салбар (хоосон = бүх салбар)
+  active: boolean;
+};
+
+/** Багц — хэд хэдэн үйлчилгээг нэгтгэсэн, багцын үнээр зарагдах санал. */
+export type ServicePackage = {
+  id: string;
+  name: string;
+  description: string;
+  serviceIds: string[]; // багцад багтах үйлчилгээнүүд
+  price: number; // MNT — багцын үнэ (ихэвчлэн нийлбэрээс хямд)
+  emoji: string;
+  sortOrder: number;
   active: boolean;
 };
 
@@ -40,6 +68,8 @@ export type Booking = {
   note: string;
   status: BookingStatus;
   code: string; // үйлчлүүлэгчид өгөх 6 тэмдэгт хайх код, ж: "K7F2QX"
+  locationId?: string; // захиалга хийгдсэн салбар
+  packageId?: string; // багцаар захиалсан бол багцын id (serviceId хоосон байна)
   createdAt: string; // ISO
 };
 
@@ -88,5 +118,7 @@ export type Database = {
   staff: Staff[];
   bookings: Booking[];
   reviews: Review[];
+  locations: Location[];
+  packages: ServicePackage[];
   settings: Settings;
 };

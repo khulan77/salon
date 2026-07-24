@@ -1,21 +1,34 @@
 import Link from "next/link";
-import { getReviews, getServices, getSettings, getStaff } from "@/app/lib/db";
+import {
+  getEffectiveLocations,
+  getReviews,
+  getServices,
+  getSettings,
+  getStaff,
+} from "@/app/lib/db";
 import ServiceCard from "@/app/components/service-card";
 import StaffCard from "@/app/components/staff-card";
 import { formatHours, mapEmbedUrl } from "@/app/lib/format";
+import { getSelectedLocationId, resolveLocation } from "@/app/lib/location";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [services, staff, reviews, settings] = await Promise.all([
+  const [services, staff, reviews, settings, locations, selectedId] = await Promise.all([
     getServices({ activeOnly: true }),
     getStaff({ activeOnly: true }),
     getReviews({ activeOnly: true }),
     getSettings(),
+    getEffectiveLocations(),
+    getSelectedLocationId(),
   ]);
   const featured = services.slice(0, 6);
-  const hours = formatHours(settings);
-  const mapUrl = mapEmbedUrl(settings.mapCoords);
+  const location = resolveLocation(locations, selectedId);
+  const hours = formatHours(location ?? settings);
+  const mapUrl = mapEmbedUrl(location?.mapCoords ?? settings.mapCoords);
+  const address = location?.address ?? settings.address;
+  const phone = location?.phone ?? settings.phone;
+  const otherLocations = locations.filter((l) => l.id !== location?.id);
 
   return (
     <div>
@@ -226,21 +239,26 @@ export default async function HomePage() {
             <h2 className="mt-2 font-display text-3xl font-semibold text-foreground">
               Бидэнтэй уулзаарай
             </h2>
+            {location?.name && (
+              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3.5 py-1 text-sm font-medium text-primary">
+                🏢 {location.name}
+              </p>
+            )}
             <ul className="mt-6 space-y-4 text-sm">
-              {settings.address && (
+              {address && (
                 <li className="flex items-start gap-3">
                   <span className="text-lg">📍</span>
-                  <span className="text-muted">{settings.address}</span>
+                  <span className="text-muted">{address}</span>
                 </li>
               )}
-              {settings.phone && (
+              {phone && (
                 <li className="flex items-center gap-3">
                   <span className="text-lg">📞</span>
                   <a
-                    href={`tel:${settings.phone.replace(/[^\d+]/g, "")}`}
+                    href={`tel:${phone.replace(/[^\d+]/g, "")}`}
                     className="text-primary hover:underline"
                   >
-                    {settings.phone}
+                    {phone}
                   </a>
                 </li>
               )}
@@ -252,6 +270,22 @@ export default async function HomePage() {
                 </span>
               </li>
             </ul>
+
+            {otherLocations.length > 0 && (
+              <div className="mt-6 border-t border-border pt-5">
+                <p className="text-xs font-medium text-muted">Бусад салбар</p>
+                <ul className="mt-3 space-y-2 text-sm">
+                  {otherLocations.map((l) => (
+                    <li key={l.id} className="text-muted">
+                      <span className="font-medium text-foreground">
+                        {l.name || l.address}
+                      </span>
+                      {l.name && l.address && ` — ${l.address}`}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <Link
               href="/book"
               className="mt-8 inline-block rounded-full bg-primary px-7 py-3 text-sm font-medium text-white hover:bg-primary-hover"

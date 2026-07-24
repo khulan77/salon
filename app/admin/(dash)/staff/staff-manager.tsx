@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { Service, Staff } from "@/app/lib/types";
+import type { Location, Service, Staff } from "@/app/lib/types";
 import {
   createStaffAction,
   deleteStaffAction,
@@ -88,12 +88,16 @@ function ImageField({
 export default function StaffManager({
   staff,
   services,
+  locations,
 }: {
   staff: Staff[];
   services: Service[];
+  locations: Location[];
 }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const locationName = (id?: string) =>
+    locations.find((l) => l.id === id)?.name || (id ? "Тодорхойгүй салбар" : "");
 
   return (
     <div>
@@ -119,6 +123,7 @@ export default function StaffManager({
           <h2 className="font-display text-lg font-semibold text-foreground">Шинэ мастер</h2>
           <StaffFields
             services={services}
+            locations={locations}
             action={async (fd) => {
               await createStaffAction(fd);
               setAdding(false);
@@ -138,6 +143,7 @@ export default function StaffManager({
               <StaffFields
                 member={m}
                 services={services}
+                locations={locations}
                 action={async (fd) => {
                   await updateStaffAction(fd);
                   setEditingId(null);
@@ -163,7 +169,12 @@ export default function StaffManager({
                     </span>
                   )}
                 </div>
-                <p className="truncate text-xs text-muted">{m.title}</p>
+                <p className="truncate text-xs text-muted">
+                  {m.title}
+                  {locations.length > 0 && locationName(m.locationId) && (
+                    <span className="ml-1">· 🏢 {locationName(m.locationId)}</span>
+                  )}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -202,12 +213,14 @@ export default function StaffManager({
 function StaffFields({
   member,
   services,
+  locations,
   action,
   submitLabel,
   onCancel,
 }: {
   member?: Staff;
   services: Service[];
+  locations: Location[];
   action: (fd: FormData) => void | Promise<void>;
   submitLabel: string;
   onCancel?: () => void;
@@ -229,6 +242,26 @@ function StaffFields({
           placeholder="Ахлах стилист"
           className="ainput"
         />
+      </L>
+      <L label="Салбар">
+        {locations.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border bg-background px-3.5 py-2.5 text-xs text-muted">
+            Салбар нэмээгүй байна.{" "}
+            <a href="/admin/locations" className="text-primary hover:underline">
+              Салбарууд
+            </a>{" "}
+            хуудаснаас нэмнэ үү.
+          </p>
+        ) : (
+          <select name="locationId" defaultValue={member?.locationId ?? ""} className="ainput">
+            <option value="">— Бүх салбар —</option>
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name || l.address || l.id}
+              </option>
+            ))}
+          </select>
+        )}
       </L>
       <L label="Танилцуулга" full>
         <textarea

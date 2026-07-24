@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import type { Location } from "@/app/lib/types";
+import LocationSelector from "./location-selector";
 
 const links = [
   { href: "/", label: "Нүүр" },
@@ -11,7 +13,15 @@ const links = [
   { href: "/my", label: "Миний захиалга" },
 ];
 
-export default function SiteHeader({ salonName }: { salonName: string }) {
+export default function SiteHeader({
+  salonName,
+  locations = [],
+  selectedLocationId,
+}: {
+  salonName: string;
+  locations?: Location[];
+  selectedLocationId?: string;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -40,6 +50,7 @@ export default function SiteHeader({ salonName }: { salonName: string }) {
               {l.label}
             </Link>
           ))}
+          <LocationSelector locations={locations} selectedId={selectedLocationId} />
           <Link
             href="/book"
             className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-hover"
@@ -48,14 +59,17 @@ export default function SiteHeader({ salonName }: { salonName: string }) {
           </Link>
         </nav>
 
-        <button
-          type="button"
-          aria-label="Цэс"
-          onClick={() => setOpen((v) => !v)}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-foreground md:hidden"
-        >
-          <span className="text-xl">{open ? "✕" : "☰"}</span>
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          <LocationSelector locations={locations} selectedId={selectedLocationId} />
+          <button
+            type="button"
+            aria-label="Цэс"
+            onClick={() => setOpen((v) => !v)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-foreground"
+          >
+            <span className="text-xl">{open ? "✕" : "☰"}</span>
+          </button>
+        </div>
       </div>
 
       {open && (

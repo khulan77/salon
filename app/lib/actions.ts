@@ -8,32 +8,51 @@ import { isSupabaseConfigured } from "./supabase/config";
 import { isAdminApiConfigured, upsertStaffAuthUser } from "./supabase/admin";
 import {
   createBooking,
+  createLocation,
+  createPackage,
   createReview,
   createService,
   createStaff,
   deleteBooking,
+  deleteLocation,
+  deletePackage,
   deleteReview,
   deleteService,
   deleteStaff,
   getAvailableSlots,
   getBooking,
   getBookingByCodeAndPhone,
+  getLocation,
+  getPackage,
+  getPackageAvailableSlots,
+  getPackageDuration,
   getService,
   getSettings,
   getStaffForService,
   getStaffMember,
   updateBookingStatus,
+  updateLocation,
+  updatePackage,
   updateReview,
   updateService,
   updateSettings,
   updateStaff,
 } from "./db";
+import { cookies } from "next/headers";
+import { LOCATION_COOKIE } from "./location";
 import { deleteImage, saveImage } from "./upload";
 import { geocodeAddress } from "./geocode";
 import { newBookingEmail, sendEmail } from "./email";
 import { effectivePrice, formatDate, normalizeSalePercent } from "./format";
 import { salonInstant } from "./time";
-import type { Booking, BookingStatus, MyBooking, Settings } from "./types";
+import type {
+  Booking,
+  BookingStatus,
+  Location,
+  MyBooking,
+  ServicePackage,
+  Settings,
+} from "./types";
 
 async function requireAdmin() {
   if (!(await isAdmin())) {
@@ -81,6 +100,22 @@ export async function logoutAction(): Promise<void> {
   redirect("/login");
 }
 
+/* ---------------- Public: сонгосон салбар ---------------- */
+
+/** Үйлчлүүлэгчийн сонгосон салбарыг cookie-д хадгална (толгойн сонгогчоос). */
+export async function selectLocationAction(locationId: string): Promise<void> {
+  const store = await cookies();
+  const clean = String(locationId ?? "").trim();
+  if (clean) {
+    store.set(LOCATION_COOKIE, clean, {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    });
+  }
+  revalidatePath("/", "layout");
+}
+
 /* ---------------- Public booking ---------------- */
 
 /** Available HH:mm start times for the picker (respects hours, duration, bookings). */
@@ -91,6 +126,16 @@ export async function getAvailableSlotsAction(
 ): Promise<string[]> {
   if (!serviceId || !staffId || !date) return [];
   return getAvailableSlots(serviceId, staffId, date);
+}
+
+/** Багцаар захиалахад боломжит эхлэх цагууд (нийт хугацаагаар тооцно). */
+export async function getPackageAvailableSlotsAction(
+  packageId: string,
+  staffId: string,
+  date: string,
+): Promise<string[]> {
+  if (!packageId || !staffId || !date) return [];
+  return getPackageAvailableSlots(packageId, staffId, date);
 }
 
 export type BookState =
@@ -113,14 +158,16 @@ export async function bookAction(
   formData: FormData,
 ): Promise<BookState> {
   const serviceId = String(formData.get("serviceId") ?? "");
+  const packageId = String(formData.get("packageId") ?? "");
   const staffId = String(formData.get("staffId") ?? "");
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const customerName = String(formData.get("customerName") ?? "").trim();
   const customerPhone = String(formData.get("customerPhone") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim();
+  const locationId = String(formData.get("locationId") ?? "").trim();
 
-  if (!serviceId || !staffId || !date || !time) {
+  if ((!serviceId && !packageId) || !staffId || !date || !time) {
     return { status: "error", message: "Үйлчилгээ, мастер, огноо, цагийг бүрэн сонгоно уу." };
   }
   if (customerName.length < 2) {
@@ -130,33 +177,57 @@ export async function bookAction(
     return { status: "error", message: "Утасны дугаараа зөв оруулна уу." };
   }
 
-  const service = await getService(serviceId);
-  const staffList = await getStaffForService(serviceId);
-  const staff = staffList.find((s) => s.id === staffId);
-  if (!service || !staff) {
-    return { status: "error", message: "Сонгосон үйлчилгээ эсвэл мастер олдсонгүй." };
+  // Багц эсвэл дан үйлчилгээ — хоёуланд нь мастер, боломжит цагийг шалгана.
+  let itemName: string;
+  const staff = await getStaffMember(staffId);
+  if (!staff || !staff.active) {
+    return { status: "error", message: "Сонгосон мастер олдсонгүй." };
   }
 
-  // Re-validate on the server: the slot must still be genuinely available
-  // (not booked, within hours, not in the past).
-  const available = await getAvailableSlots(serviceId, staffId, date);
-  if (!available.includes(time)) {
-    return {
-      status: "error",
-      message: "Уучлаарай, энэ цаг боломжгүй болсон байна. Өөр цаг сонгоно уу.",
-    };
+  if (packageId) {
+    const pkg = await getPackage(packageId);
+    if (!pkg || !pkg.active) {
+      return { status: "error", message: "Сонгосон багц олдсонгүй." };
+    }
+    const available = await getPackageAvailableSlots(packageId, staffId, date);
+    if (!available.includes(time)) {
+      return {
+        status: "error",
+        message: "Уучлаарай, энэ цаг боломжгүй болсон байна. Өөр цаг сонгоно уу.",
+      };
+    }
+    itemName = pkg.name;
+  } else {
+    const service = await getService(serviceId);
+    const staffList = await getStaffForService(serviceId);
+    if (!service || !staffList.some((s) => s.id === staffId)) {
+      return { status: "error", message: "Сонгосон үйлчилгээ эсвэл мастер олдсонгүй." };
+    }
+    // Re-validate on the server: the slot must still be genuinely available
+    // (not booked, within hours, not in the past).
+    const available = await getAvailableSlots(serviceId, staffId, date);
+    if (!available.includes(time)) {
+      return {
+        status: "error",
+        message: "Уучлаарай, энэ цаг боломжгүй болсон байна. Өөр цаг сонгоно уу.",
+      };
+    }
+    itemName = service.name;
   }
 
   let booking;
   try {
     booking = await createBooking({
-      serviceId,
+      serviceId: packageId ? "" : serviceId,
+      packageId: packageId || undefined,
       staffId,
       date,
       time,
       customerName,
       customerPhone,
       note,
+      // Ажилтны хамаарах салбар давуу эрхтэй; байхгүй бол формоос сонгосон салбар.
+      locationId: staff.locationId ?? locationId ?? undefined,
     });
   } catch (e) {
     // Race safety net: the DB unique index rejected a slot taken microseconds ago.
@@ -179,10 +250,10 @@ export async function bookAction(
   const { salonName } = await getSettings();
   await sendEmail({
     to: recipients,
-    subject: `Шинэ захиалга — ${service.name} (${formatDate(date)} ${time})`,
+    subject: `Шинэ захиалга — ${itemName} (${formatDate(date)} ${time})`,
     html: newBookingEmail({
       salonName,
-      service: service.name,
+      service: packageId ? `🎁 ${itemName} (багц)` : itemName,
       staff: staff.name,
       date: formatDate(date),
       time,
@@ -195,7 +266,7 @@ export async function bookAction(
   return {
     status: "success",
     summary: {
-      service: service.name,
+      service: packageId ? `${itemName} (багц)` : itemName,
       staff: staff.name,
       date,
       time,
@@ -223,10 +294,28 @@ function isCancellable(booking: Booking): boolean {
 
 /** Дотоод захиалгыг үйлчлүүлэгчид үзүүлэх аюулгүй хэлбэрт хөрвүүлнэ. */
 async function toMyBooking(booking: Booking): Promise<MyBooking> {
-  const [service, staff] = await Promise.all([
-    getService(booking.serviceId),
-    getStaffMember(booking.staffId),
-  ]);
+  const staff = await getStaffMember(booking.staffId);
+
+  // Багц захиалга бол багцын нэр/үнэ/хугацааг тооцно.
+  if (booking.packageId) {
+    const pkg = await getPackage(booking.packageId);
+    const durationMin = pkg ? await getPackageDuration(pkg) : 0;
+    return {
+      code: booking.code,
+      date: booking.date,
+      time: booking.time,
+      status: booking.status,
+      customerName: booking.customerName,
+      serviceName: pkg ? `${pkg.name} (багц)` : "Багц",
+      serviceEmoji: pkg?.emoji ?? "🎁",
+      staffName: staff?.name ?? "—",
+      price: pkg?.price ?? 0,
+      durationMin,
+      cancellable: isCancellable(booking),
+    };
+  }
+
+  const service = await getService(booking.serviceId);
   return {
     code: booking.code,
     date: booking.date,
@@ -381,6 +470,7 @@ export async function createStaffAction(formData: FormData): Promise<void> {
     emoji: String(formData.get("emoji") ?? "").trim() || "💇‍♀️",
     imageUrl,
     email: email || undefined,
+    locationId: String(formData.get("locationId") ?? "").trim() || undefined,
     active: formData.get("active") !== null,
   });
   await maybeSetStaffLogin(email, password);
@@ -415,6 +505,7 @@ export async function updateStaffAction(formData: FormData): Promise<void> {
     emoji: String(formData.get("emoji") ?? "").trim() || "💇‍♀️",
     imageUrl,
     email: email || undefined,
+    locationId: String(formData.get("locationId") ?? "").trim() || undefined,
     active: formData.get("active") !== null,
   });
   await maybeSetStaffLogin(email, password);
@@ -515,38 +606,133 @@ function normTime(v: FormDataEntryValue | null, fallback: string): string {
 
 export async function updateSettingsAction(formData: FormData): Promise<void> {
   await requireAdmin();
-  const slot = Number(formData.get("slotMinutes"));
   const text = (key: string, max: number) =>
     String(formData.get(key) ?? "").trim().slice(0, max);
 
-  // Газрын зургийн координатыг хаягаас өөрөө олно. Хаяг өөрчлөгдөөгүй бөгөөд
-  // өмнө нь олдсон байвал дахин хайхгүй.
-  const address = text("address", 200);
-  const current = await getSettings();
-  const mapCoords =
-    address === current.address && current.mapCoords
-      ? current.mapCoords
-      : await geocodeAddress(address);
-
+  // Зөвхөн салон даяарх ерөнхий мэдээллийг эндээс засна. Хаяг, утас, ажлын цаг
+  // нь салбар бүрт хамаарах тул "Салбарууд" хуудаснаас засагдана.
   const patch: Partial<Settings> = {
-    openTime: normTime(formData.get("openTime"), "10:00"),
-    closeTime: normTime(formData.get("closeTime"), "20:00"),
-    slotMinutes: [15, 20, 30, 45, 60].includes(slot) ? slot : 30,
-    closedDays: formData
-      .getAll("closedDays")
-      .map((d) => Number(d))
-      .filter((n) => n >= 0 && n <= 6),
     // Нэр хоосон үлдвэл сайт нэргүй болох тул анхны утгаараа үлдээнэ.
     salonName: text("salonName", 60) || "Lumière",
     tagline: text("tagline", 80),
-    phone: text("phone", 40),
     email: text("email", 80),
-    address,
     about: text("about", 1000),
-    mapCoords,
   };
   await updateSettings(patch);
 
   // Салоны мэдээлэл сайт даяар харагддаг тул бүх нийтийн хуудсыг шинэчилнэ.
   revalidatePath("/", "layout");
+}
+
+/* ---------------- Admin: locations (салбарууд) ---------------- */
+
+const SLOT_VALUES = [15, 20, 30, 45, 60];
+
+function parseClosedDays(formData: FormData): number[] {
+  return formData
+    .getAll("closedDays")
+    .map((d) => Number(d))
+    .filter((n) => n >= 0 && n <= 6);
+}
+
+/** Салбарын формоос талбаруудыг цэгцэлж, хаягаас координатыг олно. */
+async function readLocationFields(
+  formData: FormData,
+  currentAddress?: string,
+  currentCoords?: string,
+): Promise<Omit<Location, "id">> {
+  const text = (key: string, max: number) =>
+    String(formData.get(key) ?? "").trim().slice(0, max);
+  const slot = Number(formData.get("slotMinutes"));
+  const address = text("address", 200);
+
+  // Хаяг өөрчлөгдөөгүй бөгөөд өмнө нь координат олдсон бол дахин хайхгүй.
+  const mapCoords =
+    address === currentAddress && currentCoords
+      ? currentCoords
+      : await geocodeAddress(address);
+
+  return {
+    name: text("name", 60),
+    address,
+    phone: text("phone", 40),
+    mapCoords,
+    openTime: normTime(formData.get("openTime"), "10:00"),
+    closeTime: normTime(formData.get("closeTime"), "20:00"),
+    slotMinutes: SLOT_VALUES.includes(slot) ? slot : 30,
+    closedDays: parseClosedDays(formData),
+    sortOrder: Number(formData.get("sortOrder")) || 0,
+    active: formData.get("active") !== null,
+  };
+}
+
+function revalidateLocations(): void {
+  revalidatePath("/admin/locations");
+  revalidatePath("/admin/staff");
+  revalidatePath("/", "layout");
+  revalidatePath("/book");
+  revalidatePath("/staff");
+}
+
+export async function createLocationAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  await createLocation(await readLocationFields(formData));
+  revalidateLocations();
+}
+
+export async function updateLocationAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const current = await getLocation(id);
+  await updateLocation(
+    id,
+    await readLocationFields(formData, current?.address, current?.mapCoords),
+  );
+  revalidateLocations();
+}
+
+export async function deleteLocationAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  await deleteLocation(String(formData.get("id") ?? ""));
+  revalidateLocations();
+}
+
+/* ---------------- Admin: packages (багц) ---------------- */
+
+function revalidatePackages(): void {
+  revalidatePath("/admin/packages");
+  revalidatePath("/services");
+  revalidatePath("/book");
+  revalidatePath("/");
+}
+
+function readPackageFields(formData: FormData): Omit<ServicePackage, "id"> {
+  return {
+    name: String(formData.get("name") ?? "").trim() || "Нэргүй багц",
+    description: String(formData.get("description") ?? "").trim().slice(0, 500),
+    serviceIds: formData.getAll("serviceIds").map(String),
+    price: parsePrice(formData.get("price")),
+    emoji: String(formData.get("emoji") ?? "").trim() || "🎁",
+    sortOrder: Number(formData.get("sortOrder")) || 0,
+    active: formData.get("active") !== null,
+  };
+}
+
+export async function createPackageAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  await createPackage(readPackageFields(formData));
+  revalidatePackages();
+}
+
+export async function updatePackageAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  await updatePackage(id, readPackageFields(formData));
+  revalidatePackages();
+}
+
+export async function deletePackageAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  await deletePackage(String(formData.get("id") ?? ""));
+  revalidatePackages();
 }
