@@ -45,6 +45,7 @@ export default function BookingForm({
   const multiBranch = locations.length > 1;
 
   // Алхмуудыг салбартай эсэхээс хамааруулан бүрдүүлнэ.
+  // Алхмуудыг салбартай эсэхээс хамааруулан бүрдүүлнэ.
   const stepKeys = useMemo<string[]>(
     () =>
       multiBranch
