@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { Location, Service, Staff } from "@/app/lib/types";
 import {
   createStaffAction,
   deleteStaffAction,
   updateStaffAction,
 } from "@/app/lib/actions";
+import ImageField from "../image-field";
 
 function Avatar({
   imageUrl,
@@ -18,13 +19,9 @@ function Avatar({
   className: string;
 }) {
   if (imageUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
     return (
-      <img
-        src={imageUrl}
-        alt=""
-        className={`${className} object-cover`}
-      />
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={imageUrl} alt="" className={`${className} object-cover`} />
     );
   }
   return (
@@ -33,55 +30,6 @@ function Avatar({
     >
       {emoji}
     </span>
-  );
-}
-
-function ImageField({
-  currentUrl,
-  fallbackEmoji,
-}: {
-  currentUrl?: string;
-  fallbackEmoji: string;
-}) {
-  const [preview, setPreview] = useState<string | null>(null);
-  const [removed, setRemoved] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const showUrl = preview ?? (removed ? undefined : currentUrl);
-
-  return (
-    <div className="flex items-center gap-4">
-      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-border">
-        <Avatar imageUrl={showUrl} emoji={fallbackEmoji} className="h-20 w-20" />
-      </div>
-      <div className="flex flex-col gap-2">
-        <input
-          ref={inputRef}
-          type="file"
-          name="image"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            setPreview(file ? URL.createObjectURL(file) : null);
-            if (file) setRemoved(false);
-          }}
-          className="block w-full text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-primary-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-hover"
-        />
-        {currentUrl && !preview && (
-          <label className="flex items-center gap-2 text-xs text-muted">
-            <input
-              type="checkbox"
-              name="removeImage"
-              checked={removed}
-              onChange={(e) => setRemoved(e.target.checked)}
-              className="h-3.5 w-3.5 accent-[var(--primary)]"
-            />
-            Зургийг устгах (эможи руу буцна)
-          </label>
-        )}
-        <p className="text-xs text-muted">JPG, PNG, WEBP · дээд тал нь 5MB</p>
-      </div>
-    </div>
   );
 }
 

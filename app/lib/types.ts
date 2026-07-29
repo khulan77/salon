@@ -7,6 +7,7 @@ export type Service = {
   price: number; // MNT — жирийн үнэ
   salePercent: number; // 0 = хямдралгүй, 1–90 = хямдралын хувь
   emoji: string;
+  imageUrl?: string; // уншуулсан зураг; байхгүй бол эможи харагдана
   active: boolean;
 };
 
@@ -111,6 +112,7 @@ export type Settings = {
   address: string;
   about: string;
   mapCoords: string; // хаягаас автоматаар олдсон "47.9185,106.9177"
+  heroImageUrl?: string; // нүүр хуудасны эхний зураг; байхгүй бол эможи дүрслэл
 };
 
 export type Database = {

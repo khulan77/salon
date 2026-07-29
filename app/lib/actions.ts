@@ -404,8 +404,26 @@ function parseSalePercent(formData: FormData): number {
   return normalizeSalePercent(parsePrice(formData.get("salePercent")));
 }
 
+/**
+ * Формоос зургийг шийднэ: шинэ файл давуу эрхтэй, байхгүй бол хуучнаа хадгална
+ * ("устгах" тэмдэглээгүй бол). Солигдсон/устсан хуучин файлыг цэвэрлэнэ.
+ */
+async function resolveImage(
+  formData: FormData,
+  currentUrl?: string,
+): Promise<string | undefined> {
+  const uploaded = await saveImage(formData.get("image"));
+  const removed = formData.get("removeImage") !== null;
+  let next = currentUrl;
+  if (removed) next = undefined;
+  if (uploaded) next = uploaded;
+  if (currentUrl && currentUrl !== next) await deleteImage(currentUrl);
+  return next;
+}
+
 export async function createServiceAction(formData: FormData): Promise<void> {
   await requireAdmin();
+  const imageUrl = (await saveImage(formData.get("image"))) ?? undefined;
   await createService({
     name: String(formData.get("name") ?? "").trim() || "Нэргүй үйлчилгээ",
     description: String(formData.get("description") ?? "").trim(),
@@ -414,6 +432,7 @@ export async function createServiceAction(formData: FormData): Promise<void> {
     price: parsePrice(formData.get("price")),
     salePercent: parseSalePercent(formData),
     emoji: String(formData.get("emoji") ?? "").trim() || "✨",
+    imageUrl,
     active: formData.get("active") !== null,
   });
   revalidateServices();
@@ -422,6 +441,8 @@ export async function createServiceAction(formData: FormData): Promise<void> {
 export async function updateServiceAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");
+  const current = await getService(id);
+  const imageUrl = await resolveImage(formData, current?.imageUrl);
   await updateService(id, {
     name: String(formData.get("name") ?? "").trim(),
     description: String(formData.get("description") ?? "").trim(),
@@ -430,6 +451,7 @@ export async function updateServiceAction(formData: FormData): Promise<void> {
     price: parsePrice(formData.get("price")),
     salePercent: parseSalePercent(formData),
     emoji: String(formData.get("emoji") ?? "").trim() || "✨",
+    imageUrl,
     active: formData.get("active") !== null,
   });
   revalidateServices();
@@ -437,7 +459,10 @@ export async function updateServiceAction(formData: FormData): Promise<void> {
 
 export async function deleteServiceAction(formData: FormData): Promise<void> {
   await requireAdmin();
-  await deleteService(String(formData.get("id") ?? ""));
+  const id = String(formData.get("id") ?? "");
+  const current = await getService(id);
+  await deleteService(id);
+  await deleteImage(current?.imageUrl);
   revalidateServices();
 }
 
@@ -483,17 +508,7 @@ export async function updateStaffAction(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const current = await getStaffMember(id);
 
-  // Resolve the photo: new upload wins; else keep existing unless "remove" ticked.
-  const uploaded = await saveImage(formData.get("image"));
-  const removeImage = formData.get("removeImage") !== null;
-  let imageUrl = current?.imageUrl;
-  if (removeImage) imageUrl = undefined;
-  if (uploaded) imageUrl = uploaded;
-
-  // Clean up the old file if it was replaced or removed.
-  if (current?.imageUrl && current.imageUrl !== imageUrl) {
-    await deleteImage(current.imageUrl);
-  }
+  const imageUrl = await resolveImage(formData, current?.imageUrl);
 
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
@@ -609,6 +624,8 @@ export async function updateSettingsAction(formData: FormData): Promise<void> {
   const text = (key: string, max: number) =>
     String(formData.get(key) ?? "").trim().slice(0, max);
 
+  const current = await getSettings();
+
   // Зөвхөн салон даяарх ерөнхий мэдээллийг эндээс засна. Хаяг, утас, ажлын цаг
   // нь салбар бүрт хамаарах тул "Салбарууд" хуудаснаас засагдана.
   const patch: Partial<Settings> = {
@@ -617,6 +634,7 @@ export async function updateSettingsAction(formData: FormData): Promise<void> {
     tagline: text("tagline", 80),
     email: text("email", 80),
     about: text("about", 1000),
+    heroImageUrl: await resolveImage(formData, current.heroImageUrl),
   };
   await updateSettings(patch);
 

@@ -7,6 +7,7 @@ import {
   getStaff,
 } from "@/app/lib/db";
 import ServiceCard from "@/app/components/service-card";
+import ScrollRow from "@/app/components/scroll-row";
 import StaffCard from "@/app/components/staff-card";
 import { formatHours, mapEmbedUrl } from "@/app/lib/format";
 import { getSelectedLocationId, resolveLocation } from "@/app/lib/location";
@@ -61,29 +62,28 @@ export default async function HomePage() {
                 Үйлчилгээ үзэх
               </Link>
             </div>
-            <div className="mt-10 flex gap-8">
-              {[
-                { n: "10+", l: "Жилийн туршлага" },
-                { n: `${services.length}`, l: "Төрлийн үйлчилгээ" },
-                { n: "2000+", l: "Сэтгэл ханамжтай үйлчлүүлэгч" },
-              ].map((s) => (
-                <div key={s.l}>
-                  <div className="font-display text-3xl font-semibold text-foreground">{s.n}</div>
-                  <div className="mt-1 text-xs text-muted">{s.l}</div>
-                </div>
-              ))}
-            </div>
           </div>
 
           <div className="flex animate-fade-up justify-center">
             <div className="relative aspect-square w-full max-w-sm">
-              <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-full bg-gradient-to-br from-primary-soft via-surface to-surface-2 px-12 text-center">
-                <div className="text-7xl">💇‍♀️</div>
-                <p className="font-display text-2xl text-foreground">{settings.salonName}</p>
-                <p className="max-w-[15rem] text-sm leading-6 text-muted">
-                  Үс, хумс, арьс арчилгаа, нүүр будалт
-                </p>
-              </div>
+              {settings.heroImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={settings.heroImageUrl}
+                  alt={settings.salonName}
+                  className="h-full w-full rounded-full object-cover shadow-[0_30px_60px_-30px_rgba(46,39,35,0.5)] ring-8 ring-surface"
+                />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-full bg-gradient-to-br from-primary-soft via-surface to-surface-2 px-12 text-center">
+                  <div className="text-7xl">💇‍♀️</div>
+                  <p className="font-display text-2xl text-foreground">
+                    {settings.salonName}
+                  </p>
+                  <p className="max-w-[15rem] text-sm leading-6 text-muted">
+                    Үс, хумс, арьс арчилгаа, нүүр будалт
+                  </p>
+                </div>
+              )}
 
               {[
                 { icon: "✂️", pos: "left-0 top-8" },
@@ -103,83 +103,28 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Why us */}
-      <section className="mx-auto w-full max-w-6xl px-5 py-16">
-        <div className="grid gap-10 sm:grid-cols-3 sm:gap-8">
-          {[
-            { icon: "⭐", t: "Мэргэжлийн мастерууд", d: "Сертификаттай, туршлагатай баг таныг угтана." },
-            { icon: "🗓️", t: "Хялбар захиалга", d: "Онлайнаар 24/7 цагаа сонгож захиалах боломж." },
-            { icon: "🌿", t: "Чанартай бүтээгдэхүүн", d: "Зөвхөн шилдэг брэндийн бүтээгдэхүүн ашиглана." },
-          ].map((f) => (
-            <div key={f.t} className="sm:px-2">
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-2xl">
-                {f.icon}
-              </span>
-              <h3 className="mt-5 font-display text-lg font-semibold text-foreground">{f.t}</h3>
-              <p className="mt-2 text-sm leading-6 text-muted">{f.d}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* About */}
-      <section className="mx-auto w-full max-w-6xl px-5 py-16">
-        <div className="grid items-center gap-12 lg:grid-cols-2">
-          <div className="order-2 lg:order-1">
-            <p className="eyebrow">Бидний тухай</p>
-            <h2 className="mt-1 font-display text-3xl font-semibold text-foreground">
-              Гоо сайхан бол өөрийгөө хайрлах эхлэл
-            </h2>
-            <p className="mt-4 whitespace-pre-line leading-8 text-muted">
-              {settings.about ||
-                `${settings.salonName} нь үйлчлүүлэгчийнхээ итгэлийг хүлээсэн салон. Бид зөвхөн чанартай бүтээгдэхүүн ашиглаж, мэргэжлийн мастеруудаараа таны хүссэн дүр төрхийг бүтээнэ.`}
-            </p>
-            <ul className="mt-6 space-y-2.5 text-sm text-foreground">
-              <li className="flex items-center gap-2">✓ Олон улсын сертификаттай мастерууд</li>
-              <li className="flex items-center gap-2">✓ Ариун цэвэр, тав тухтай орчин</li>
-              <li className="flex items-center gap-2">✓ Хувь хүнд тохирсон зөвлөгөө</li>
-            </ul>
-          </div>
-          <div className="order-1 flex items-center justify-center lg:order-2">
-            <div className="grid grid-cols-2 gap-5 sm:gap-6">
-              {[
-                { icon: "💇‍♀️", label: "Үс" },
-                { icon: "💅", label: "Хумс" },
-                { icon: "🧖‍♀️", label: "Арьс" },
-                { icon: "💄", label: "Гоо сайхан" },
-              ].map((c, i) => (
-                <div
-                  key={c.label}
-                  className={`flex h-32 w-32 flex-col items-center justify-center gap-1.5 rounded-full bg-gradient-to-br from-primary-soft to-surface-2 sm:h-36 sm:w-36 ${
-                    i % 2 === 1 ? "translate-y-6" : ""
-                  }`}
-                >
-                  <span className="text-4xl">{c.icon}</span>
-                  <span className="text-xs text-muted">{c.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Featured services */}
-      <section className="mx-auto w-full max-w-6xl px-5 py-10">
-        <div className="flex items-end justify-between">
+      <section className="mx-auto w-full max-w-6xl px-5 py-16 sm:py-20">
+        <div className="flex items-end justify-between gap-4">
           <div>
             <p className="eyebrow">Үйлчилгээ</p>
-            <h2 className="mt-2 font-display text-3xl font-semibold text-foreground">
+            <h2 className="mt-2 font-display text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
               Онцлох үйлчилгээнүүд
             </h2>
           </div>
-          <Link href="/services" className="text-sm font-medium text-primary hover:underline">
+          <Link
+            href="/services"
+            className="shrink-0 whitespace-nowrap text-sm font-medium text-primary hover:underline"
+          >
             Бүгдийг үзэх →
           </Link>
         </div>
-        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {featured.map((s) => (
-            <ServiceCard key={s.id} service={s} />
-          ))}
+        <div className="mt-9">
+          <ScrollRow>
+            {featured.map((s) => (
+              <ServiceCard key={s.id} service={s} />
+            ))}
+          </ScrollRow>
         </div>
       </section>
 

@@ -2,51 +2,65 @@ import Link from "next/link";
 import type { Service } from "@/app/lib/types";
 import { effectivePrice, formatDuration, formatPrice, hasSale } from "@/app/lib/format";
 
+/**
+ * Үйлчилгээний карт — арк хэлбэрийн зураг, доор нь editorial бичиг.
+ * Хүрээтэй хайрцаг ашиглахгүй: зураг өөрөө хэлбэрээ барина. Бүтэн карт нь
+ * холбоос тул гар утсан дээр хаана ч дарахад захиалга руу ороно.
+ */
 export default function ServiceCard({ service }: { service: Service }) {
+  const sale = hasSale(service);
+
   return (
-    <div className="card card-hover group flex flex-col p-7">
-      <div className="flex items-start justify-between gap-3">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-2xl">
-          {service.emoji}
-        </span>
-        {hasSale(service) && (
-          <span className="rounded-full bg-rose-500 px-3 py-1 text-xs font-semibold text-white">
+    <Link href={`/book?service=${service.id}`} className="group block">
+      <div className="arch">
+        {service.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={service.imageUrl}
+            alt={service.name}
+            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
+          />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center bg-gradient-to-b from-primary-soft to-surface-2 text-5xl transition-transform duration-700 ease-out group-hover:scale-[1.06] sm:text-6xl">
+            {service.emoji}
+          </span>
+        )}
+        {/* Аркны дээд булан дугуй тул тэмдгийг доод (шулуун) буланд байрлуулна */}
+        {sale && (
+          <span className="absolute bottom-3 right-3 rounded-full bg-rose-500 px-2.5 py-1 text-[0.65rem] font-semibold text-white shadow-sm sm:bottom-4 sm:right-4 sm:text-xs">
             −{service.salePercent}%
           </span>
         )}
       </div>
 
-      <p className="mt-6 text-[0.7rem] font-medium uppercase tracking-[0.16em] text-muted">
-        {service.category}
-      </p>
-      <h3 className="mt-1.5 font-display text-xl font-semibold text-foreground">
-        {service.name}
-      </h3>
-      <p className="mt-2 flex-1 text-sm leading-6 text-muted">{service.description}</p>
+      <div className="mt-4 px-0.5">
+        <p className="text-[0.6rem] font-medium uppercase tracking-[0.18em] text-muted sm:text-[0.66rem]">
+          {service.category} · {formatDuration(service.durationMin)}
+        </p>
+        <h3 className="mt-1.5 font-display text-lg leading-snug text-foreground transition-colors group-hover:text-primary sm:text-xl">
+          {service.name}
+        </h3>
+        {service.description && (
+          <p className="mt-1.5 hidden text-sm leading-6 text-muted sm:line-clamp-2">
+            {service.description}
+          </p>
+        )}
 
-      <div className="mt-6 flex items-end justify-between gap-3">
-        <div>
-          <div className="flex items-baseline gap-2">
-            {hasSale(service) && (
-              <s className="text-sm text-muted">{formatPrice(service.price)}</s>
-            )}
-            <span
-              className={`text-lg font-semibold ${
-                hasSale(service) ? "text-rose-600" : "text-foreground"
-              }`}
-            >
-              {formatPrice(effectivePrice(service))}
-            </span>
-          </div>
-          <div className="mt-0.5 text-xs text-muted">{formatDuration(service.durationMin)}</div>
+        <div className="mt-3 flex items-center gap-2">
+          {sale && <s className="text-xs text-muted">{formatPrice(service.price)}</s>}
+          <span
+            className={`font-display text-lg ${sale ? "text-rose-600" : "text-foreground"}`}
+          >
+            {formatPrice(effectivePrice(service))}
+          </span>
+          <span
+            aria-hidden
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-primary-soft text-sm text-primary transition-colors group-hover:bg-primary group-hover:text-white"
+          >
+            →
+          </span>
         </div>
-        <Link
-          href={`/book?service=${service.id}`}
-          className="rounded-full bg-primary-soft px-5 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary hover:text-white"
-        >
-          Захиалах
-        </Link>
       </div>
-    </div>
+    </Link>
   );
 }

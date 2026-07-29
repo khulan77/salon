@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSettings } from "@/app/lib/db";
 import { updateSettingsAction } from "@/app/lib/actions";
+import ImageField from "../image-field";
 
 export const metadata = { title: "Тохиргоо" };
 
@@ -83,6 +84,25 @@ export default async function AdminSettingsPage() {
                 className="sinput resize-none"
               />
             </label>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="font-display text-lg font-semibold text-foreground">
+            Нүүр хуудасны зураг
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Нүүр хуудсын дээд хэсэгт дугуй хүрээнд харагдана. Салоны дотоод
+            орчин, ажлын үр дүнгээ тавихад тохиромжтой. Хоосон бол эможи дүрслэл
+            гарна.
+          </p>
+          <div className="mt-4">
+            <ImageField
+              currentUrl={settings.heroImageUrl}
+              fallbackEmoji="💇‍♀️"
+              shape="wide"
+              hint="Дөрвөлжинд ойр зураг илүү тохирно · JPG, PNG, WEBP · 5MB хүртэл"
+            />
           </div>
         </section>
 

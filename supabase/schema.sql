@@ -14,6 +14,7 @@ create table if not exists public.services (
   price        integer not null default 0,
   sale_percent integer not null default 0,
   emoji        text not null default '✨',
+  image_url    text,
   active       boolean not null default true,
   constraint services_sale_percent_range check (sale_percent between 0 and 90)
 );
@@ -21,6 +22,9 @@ create table if not exists public.services (
 -- Migration for databases created before the sale feature existed.
 alter table public.services
   add column if not exists sale_percent integer not null default 0;
+
+-- Үйлчилгээний зураг (хуучин мэдээллийн санд нэмнэ).
+alter table public.services add column if not exists image_url text;
 
 -- Салбарууд (branches). Салон нэгээс олон хаягтай байж болно — салбар бүр
 -- өөрийн хаяг, утас, ажлын цагтай. Ажилтан бүр нэг салбарт хамаарна.
@@ -119,8 +123,12 @@ create table if not exists public.settings (
   about        text not null default '',
   -- Хаягаас автоматаар олдсон "өргөрөг,уртраг". Админ гараар оруулахгүй.
   map_coords   text not null default '',
+  -- Нүүр хуудасны эхний (hero) зураг.
+  hero_image_url text,
   constraint settings_singleton check (id = 1)
 );
+
+alter table public.settings add column if not exists hero_image_url text;
 
 -- Lock down: enable RLS, add no policies (service-role key still bypasses it).
 alter table public.services  enable row level security;

@@ -65,6 +65,7 @@ const serviceFromRow = (r: any): Service => ({
   price: r.price ?? 0,
   salePercent: r.sale_percent ?? 0,
   emoji: r.emoji ?? "✨",
+  imageUrl: r.image_url ?? undefined,
   active: r.active ?? true,
 });
 const serviceToRow = (s: Partial<Service>) => ({
@@ -75,6 +76,7 @@ const serviceToRow = (s: Partial<Service>) => ({
   ...(s.price !== undefined && { price: s.price }),
   ...(s.salePercent !== undefined && { sale_percent: s.salePercent }),
   ...(s.emoji !== undefined && { emoji: s.emoji }),
+  ...(s.imageUrl !== undefined && { image_url: s.imageUrl ?? null }),
   ...(s.active !== undefined && { active: s.active }),
 });
 
@@ -192,6 +194,7 @@ const settingsFromRow = (r: any): Settings => ({
   address: r.address ?? "",
   about: r.about ?? "",
   mapCoords: r.map_coords ?? "",
+  heroImageUrl: r.hero_image_url ?? undefined,
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -629,6 +632,7 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
     address: next.address,
     about: next.about,
     map_coords: next.mapCoords,
+    hero_image_url: next.heroImageUrl ?? null,
   });
   if (error) throw new Error(error.message);
 }

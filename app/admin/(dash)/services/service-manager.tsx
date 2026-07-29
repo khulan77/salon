@@ -13,6 +13,7 @@ import {
   formatPrice,
   hasSale,
 } from "@/app/lib/format";
+import ImageField from "../image-field";
 
 export default function ServiceManager({ services }: { services: Service[] }) {
   const [adding, setAdding] = useState(false);
@@ -84,9 +85,18 @@ export default function ServiceManager({ services }: { services: Service[] }) {
               key={s.id}
               className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-surface p-4"
             >
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-2xl">
-                {s.emoji}
-              </span>
+              {s.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={s.imageUrl}
+                  alt=""
+                  className="h-12 w-12 shrink-0 rounded-xl object-cover"
+                />
+              ) : (
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-2xl">
+                  {s.emoji}
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <h3 className="truncate font-medium text-foreground">{s.name}</h3>
@@ -169,6 +179,15 @@ function ServiceFields({
   return (
     <form action={action} className="mt-4 grid gap-4 sm:grid-cols-2">
       {service && <input type="hidden" name="id" value={service.id} />}
+      <div className="sm:col-span-2">
+        <span className="mb-1.5 block text-sm font-medium text-foreground">Зураг</span>
+        <ImageField
+          currentUrl={service?.imageUrl}
+          fallbackEmoji={service?.emoji ?? "✨"}
+          shape="wide"
+          hint="Сайт дээр картын толгойд харагдана. JPG, PNG, WEBP · 5MB хүртэл"
+        />
+      </div>
       <L label="Нэр">
         <input name="name" required defaultValue={service?.name} className="ainput" />
       </L>
@@ -209,7 +228,7 @@ function ServiceFields({
           className="ainput"
         />
       </L>
-      <L label="Эможи">
+      <L label="Эможи (зураг байхгүй үед)">
         <input
           name="emoji"
           defaultValue={service?.emoji ?? "✨"}

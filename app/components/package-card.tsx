@@ -2,6 +2,11 @@ import Link from "next/link";
 import type { Service, ServicePackage } from "@/app/lib/types";
 import { formatDuration, formatPrice, packageTotals } from "@/app/lib/format";
 
+/**
+ * Багцын карт — үйлчилгээний картын арктай ижил хэл. Багц нь хэд хэдэн
+ * үйлчилгээнээс бүрдэх тул арк дотор багтах үйлчилгээнүүдийн зургийг
+ * коллаж болгон харуулна. Зураггүй бол эможи дүрслэл рүү буцна.
+ */
 export default function PackageCard({
   pkg,
   services,
@@ -13,58 +18,63 @@ export default function PackageCard({
   const included = pkg.serviceIds
     .map((id) => services.find((s) => s.id === id))
     .filter((s): s is Service => Boolean(s));
+  const images = included
+    .map((s) => s.imageUrl)
+    .filter((u): u is string => Boolean(u))
+    .slice(0, 3);
 
   return (
-    <div className="card card-hover group flex flex-col p-7 ring-1 ring-primary/20">
-      <div className="flex items-start justify-between gap-3">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-2xl">
-          {pkg.emoji}
+    <Link href={`/book?package=${pkg.id}`} className="group block">
+      <div className="arch ring-1 ring-primary/15">
+        {images.length === 0 ? (
+          <span className="flex h-full w-full items-center justify-center bg-gradient-to-b from-primary-soft to-surface-2 text-5xl transition-transform duration-700 ease-out group-hover:scale-[1.06] sm:text-6xl">
+            {pkg.emoji}
+          </span>
+        ) : (
+          <div className="flex h-full w-full gap-0.5 transition-transform duration-700 ease-out group-hover:scale-[1.06]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={images[0]} alt="" className="h-full flex-1 object-cover" />
+            {images.length > 1 && (
+              <div className="flex h-full flex-1 flex-col gap-0.5">
+                {images.slice(1).map((src) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={src} src={src} alt="" className="min-h-0 flex-1 object-cover" />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <span className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full bg-surface/90 px-3 py-1 text-[0.6rem] font-medium uppercase tracking-[0.18em] text-primary backdrop-blur-sm sm:top-6">
+          Багц
         </span>
         {t.savePercent > 0 && (
-          <span className="rounded-full bg-rose-500 px-3 py-1 text-xs font-semibold text-white">
+          <span className="absolute right-3 bottom-3 rounded-full bg-rose-500 px-2.5 py-1 text-[0.65rem] font-semibold text-white shadow-sm sm:right-4 sm:bottom-4 sm:text-xs">
             −{t.savePercent}%
           </span>
         )}
       </div>
 
-      <p className="mt-6 text-[0.7rem] font-medium uppercase tracking-[0.16em] text-primary">
-        Багц
-      </p>
-      <h3 className="mt-1.5 font-display text-xl font-semibold text-foreground">{pkg.name}</h3>
-      {pkg.description && (
-        <p className="mt-2 text-sm leading-6 text-muted">{pkg.description}</p>
-      )}
+      <div className="mt-4 px-0.5">
+        <h3 className="font-display text-lg leading-snug text-foreground transition-colors group-hover:text-primary sm:text-xl">
+          {pkg.name}
+        </h3>
+        <p className="mt-1.5 text-xs leading-6 text-muted sm:text-sm">
+          {included.map((s) => s.name).join(" · ")}
+          {t.durationMin > 0 && ` · ${formatDuration(t.durationMin)}`}
+        </p>
 
-      <ul className="mt-4 flex-1 space-y-1.5 text-sm text-muted">
-        {included.map((s) => (
-          <li key={s.id} className="flex items-center gap-2">
-            <span className="text-primary">✓</span>
-            <span className="text-foreground/90">
-              {s.emoji} {s.name}
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-6 flex items-end justify-between gap-3">
-        <div>
-          <div className="flex items-baseline gap-2">
-            {t.saved > 0 && <s className="text-sm text-muted">{formatPrice(t.regular)}</s>}
-            <span className="text-lg font-semibold text-rose-600">{formatPrice(pkg.price)}</span>
-          </div>
-          {t.durationMin > 0 && (
-            <div className="mt-0.5 text-xs text-muted">
-              Нийт {formatDuration(t.durationMin)}
-            </div>
-          )}
+        <div className="mt-3 flex items-center gap-2">
+          {t.saved > 0 && <s className="text-xs text-muted">{formatPrice(t.regular)}</s>}
+          <span className="font-display text-lg text-rose-600">{formatPrice(pkg.price)}</span>
+          <span
+            aria-hidden
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-primary-soft text-sm text-primary transition-colors group-hover:bg-primary group-hover:text-white"
+          >
+            →
+          </span>
         </div>
-        <Link
-          href={`/book?package=${pkg.id}`}
-          className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
-        >
-          Захиалах
-        </Link>
       </div>
-    </div>
+    </Link>
   );
 }
