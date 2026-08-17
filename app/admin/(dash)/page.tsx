@@ -1,24 +1,23 @@
 import Link from "next/link";
-import { getBookings, getServices, getStaff } from "@/app/lib/db";
-import { effectivePrice, formatDate, formatPrice } from "@/app/lib/format";
+import { getBookings, getPackages, getServices, getStaff } from "@/app/lib/db";
+import { bookingPrice, formatDate, formatPrice } from "@/app/lib/format";
 import { StatusBadge } from "@/app/components/status-badge";
 
 export const metadata = { title: "Хянах самбар" };
 
 export default async function AdminDashboard() {
-  const [services, staff, bookings] = await Promise.all([
+  const [services, staff, bookings, packages] = await Promise.all([
     getServices(),
     getStaff(),
     getBookings(),
+    getPackages(),
   ]);
 
   const pending = bookings.filter((b) => b.status === "pending").length;
+  // Багц захиалгад serviceId хоосон байдаг тул үнийг нь багцаас нь авна.
   const revenue = bookings
     .filter((b) => b.status === "done" || b.status === "confirmed")
-    .reduce((sum, b) => {
-      const svc = services.find((s) => s.id === b.serviceId);
-      return sum + (svc ? effectivePrice(svc) : 0);
-    }, 0);
+    .reduce((sum, b) => sum + bookingPrice(b, services, packages), 0);
 
   const stats = [
     { label: "Нийт захиалга", value: bookings.length, icon: "🗓️", href: "/admin/bookings" },
@@ -84,12 +83,15 @@ export default async function AdminDashboard() {
               </thead>
               <tbody>
                 {recent.map((b) => {
+                  const pkg = b.packageId
+                    ? packages.find((p) => p.id === b.packageId)
+                    : undefined;
                   const svc = services.find((s) => s.id === b.serviceId);
                   return (
                     <tr key={b.id} className="border-t border-border">
                       <td className="px-5 py-3 font-medium text-foreground">{b.customerName}</td>
                       <td className="hidden px-5 py-3 text-muted sm:table-cell">
-                        {svc?.name ?? "—"}
+                        {pkg ? `${pkg.name} (багц)` : (svc?.name ?? "—")}
                       </td>
                       <td className="px-5 py-3 text-muted">
                         {formatDate(b.date)} · {b.time}

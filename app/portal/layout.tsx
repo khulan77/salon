@@ -11,7 +11,7 @@ export default async function PortalLayout({
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role === "admin") redirect("/admin"); // admins use the full panel
+  if (session.role === "admin") redirect("/admin"); 
 
   const { salonName } = await getSettings();
 

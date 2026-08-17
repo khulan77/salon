@@ -45,6 +45,22 @@ export function packageTotals(
   return { regular, price: pkg.price, saved, savePercent, durationMin };
 }
 
+/**
+ * Захиалгын бодит үнэ — багцаар захиалсан бол багцын үнэ, дан үйлчилгээ бол
+ * хямдрал тооцсон үнэ. Орлогын тайлан бүр үүнийг ашиглана.
+ */
+export function bookingPrice(
+  booking: { serviceId: string; packageId?: string },
+  services: { id: string; price: number; salePercent?: number }[],
+  packages: { id: string; price: number }[],
+): number {
+  if (booking.packageId) {
+    return packages.find((p) => p.id === booking.packageId)?.price ?? 0;
+  }
+  const service = services.find((s) => s.id === booking.serviceId);
+  return service ? effectivePrice(service) : 0;
+}
+
 export function formatDuration(min: number): string {
   if (min < 60) return `${min} мин`;
   const h = Math.floor(min / 60);

@@ -10,6 +10,7 @@ import {
   createBooking,
   createLocation,
   createPackage,
+  createPayment,
   createReview,
   createService,
   createStaff,
@@ -26,11 +27,13 @@ import {
   getPackage,
   getPackageAvailableSlots,
   getPackageDuration,
+  getPayment,
   getService,
   getSettings,
   getStaffForService,
   getStaffMember,
   updateBookingStatus,
+  updatePayment,
   updateLocation,
   updatePackage,
   updateReview,
@@ -42,11 +45,18 @@ import { cookies } from "next/headers";
 import { LOCATION_COOKIE } from "./location";
 import { deleteImage, saveImage } from "./upload";
 import { geocodeAddress } from "./geocode";
-import { newBookingEmail, sendEmail } from "./email";
+import { cancelledBookingEmail, newBookingEmail, sendEmail } from "./email";
+import {
+  callbackUrl,
+  isMockPayment,
+  resolveProvider,
+} from "./payment/provider";
+import { draftItemName, finalizePaidBooking } from "./payment/flow";
 import { effectivePrice, formatDate, normalizeSalePercent } from "./format";
 import { salonInstant } from "./time";
 import type {
   Booking,
+  BookingDraft,
   BookingStatus,
   Location,
   MyBooking,
@@ -58,6 +68,63 @@ async function requireAdmin() {
   if (!(await isAdmin())) {
     throw new Error("Unauthorized");
   }
+}
+
+/* ---------------- Мэдэгдэл (Resend) ---------------- */
+
+/**
+ * Мэдэгдэл хүлээн авагчид — ADMIN_EMAILS дахь админ(ууд), мөн заасан бол
+ * тухайн мастер. Тохируулаагүй бол хоосон жагсаалт буцаана (sendEmail no-op).
+ */
+function notifyRecipients(staffEmail?: string): string[] {
+  const admins = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+  return Array.from(new Set([...admins, ...(staffEmail ? [staffEmail] : [])]));
+}
+
+/** Захиалгын үйлчилгээ/багцын нэрийг мэдэгдэлд харуулах хэлбэрээр буцаана. */
+async function bookingItemName(booking: Booking): Promise<string> {
+  if (booking.packageId) {
+    const pkg = await getPackage(booking.packageId);
+    return pkg ? `🎁 ${pkg.name} (багц)` : "Багц";
+  }
+  const service = await getService(booking.serviceId);
+  return service?.name ?? "Үйлчилгээ";
+}
+
+/**
+ * Захиалга цуцлагдсаныг имэйлээр мэдэгдэнэ. Үйлчлүүлэгч цуцалбал админ болон
+ * мастер хоёулаа, мастер өөрөө цуцалбал зөвхөн админ мэдэгдэл авна.
+ */
+async function notifyCancellation(
+  booking: Booking,
+  by: "customer" | "staff",
+): Promise<void> {
+  const staff = await getStaffMember(booking.staffId);
+  const to = notifyRecipients(by === "customer" ? staff?.email : undefined);
+  if (to.length === 0) return;
+
+  const [item, { salonName }] = await Promise.all([
+    bookingItemName(booking),
+    getSettings(),
+  ]);
+  await sendEmail({
+    to,
+    subject: `Захиалга цуцлагдлаа — ${item} (${formatDate(booking.date)} ${booking.time})`,
+    html: cancelledBookingEmail({
+      salonName,
+      service: item,
+      staff: staff?.name ?? "—",
+      date: formatDate(booking.date),
+      time: booking.time,
+      customerName: booking.customerName,
+      customerPhone: booking.customerPhone,
+      code: booking.code,
+      by,
+    }),
+  });
 }
 
 /* ---------------- Auth ---------------- */
@@ -123,9 +190,10 @@ export async function getAvailableSlotsAction(
   serviceId: string,
   staffId: string,
   date: string,
+  locationId?: string,
 ): Promise<string[]> {
   if (!serviceId || !staffId || !date) return [];
-  return getAvailableSlots(serviceId, staffId, date);
+  return getAvailableSlots(serviceId, staffId, date, locationId);
 }
 
 /** Багцаар захиалахад боломжит эхлэх цагууд (нийт хугацаагаар тооцно). */
@@ -133,9 +201,81 @@ export async function getPackageAvailableSlotsAction(
   packageId: string,
   staffId: string,
   date: string,
+  locationId?: string,
 ): Promise<string[]> {
   if (!packageId || !staffId || !date) return [];
-  return getPackageAvailableSlots(packageId, staffId, date);
+  return getPackageAvailableSlots(packageId, staffId, date, locationId);
+}
+
+/** Захиалгын формоос ноорог уншина — үйлчлүүлэгч ба админд ижил. */
+function readBookingForm(formData: FormData): BookingDraft {
+  return {
+    serviceId: String(formData.get("serviceId") ?? ""),
+    packageId: String(formData.get("packageId") ?? "") || undefined,
+    staffId: String(formData.get("staffId") ?? ""),
+    date: String(formData.get("date") ?? ""),
+    time: String(formData.get("time") ?? ""),
+    customerName: String(formData.get("customerName") ?? "").trim(),
+    customerPhone: String(formData.get("customerPhone") ?? "").trim(),
+    note: String(formData.get("note") ?? "").trim(),
+    locationId: String(formData.get("locationId") ?? "").trim() || undefined,
+  };
+}
+
+/**
+ * Ноорогийг сервер талд бүрэн шалгана — клиент талын шүүлтэд найдахгүй.
+ * Алдаатай бол харуулах мессеж, зөв бол null буцаана.
+ */
+async function validateDraft(
+  draft: BookingDraft,
+  opts?: { checkAvailability?: boolean },
+): Promise<string | null> {
+  if ((!draft.serviceId && !draft.packageId) || !draft.staffId) {
+    return "Үйлчилгээ, мастер, огноо, цагийг бүрэн сонгоно уу.";
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.date) || !/^\d{2}:\d{2}$/.test(draft.time)) {
+    return "Огноо, цагийг зөв сонгоно уу.";
+  }
+  if (draft.customerName.length < 2) return "Нэрээ оруулна уу.";
+  if (!/^[0-9\s+\-()]{6,}$/.test(draft.customerPhone)) {
+    return "Утасны дугаараа зөв оруулна уу.";
+  }
+
+  const staff = await getStaffMember(draft.staffId);
+  if (!staff || !staff.active) return "Сонгосон мастер олдсонгүй.";
+
+  if (draft.packageId) {
+    const pkg = await getPackage(draft.packageId);
+    if (!pkg || !pkg.active) return "Сонгосон багц олдсонгүй.";
+  } else {
+    const service = await getService(draft.serviceId);
+    const staffList = await getStaffForService(draft.serviceId);
+    if (!service || !staffList.some((s) => s.id === draft.staffId)) {
+      return "Сонгосон үйлчилгээ эсвэл мастер олдсонгүй.";
+    }
+  }
+
+  if (opts?.checkAvailability === false) return null;
+
+  // Цагийг сервер дээр дахин шалгана: захиалагдаагүй, ажлын цагт багтсан,
+  // өнгөрөөгүй байх ёстой.
+  const available = draft.packageId
+    ? await getPackageAvailableSlots(
+        draft.packageId,
+        draft.staffId,
+        draft.date,
+        draft.locationId,
+      )
+    : await getAvailableSlots(
+        draft.serviceId,
+        draft.staffId,
+        draft.date,
+        draft.locationId,
+      );
+  if (!available.includes(draft.time)) {
+    return "Уучлаарай, энэ цаг боломжгүй болсон байна. Өөр цаг сонгоно уу.";
+  }
+  return null;
 }
 
 export type BookState =
@@ -157,77 +297,28 @@ export async function bookAction(
   _prev: BookState,
   formData: FormData,
 ): Promise<BookState> {
-  const serviceId = String(formData.get("serviceId") ?? "");
-  const packageId = String(formData.get("packageId") ?? "");
-  const staffId = String(formData.get("staffId") ?? "");
-  const date = String(formData.get("date") ?? "");
-  const time = String(formData.get("time") ?? "");
-  const customerName = String(formData.get("customerName") ?? "").trim();
-  const customerPhone = String(formData.get("customerPhone") ?? "").trim();
-  const note = String(formData.get("note") ?? "").trim();
-  const locationId = String(formData.get("locationId") ?? "").trim();
+  const draft = readBookingForm(formData);
+  const invalid = await validateDraft(draft);
+  if (invalid) return { status: "error", message: invalid };
 
-  if ((!serviceId && !packageId) || !staffId || !date || !time) {
-    return { status: "error", message: "Үйлчилгээ, мастер, огноо, цагийг бүрэн сонгоно уу." };
-  }
-  if (customerName.length < 2) {
-    return { status: "error", message: "Нэрээ оруулна уу." };
-  }
-  if (!/^[0-9\s+\-()]{6,}$/.test(customerPhone)) {
-    return { status: "error", message: "Утасны дугаараа зөв оруулна уу." };
-  }
-
-  // Багц эсвэл дан үйлчилгээ — хоёуланд нь мастер, боломжит цагийг шалгана.
-  let itemName: string;
-  const staff = await getStaffMember(staffId);
-  if (!staff || !staff.active) {
-    return { status: "error", message: "Сонгосон мастер олдсонгүй." };
-  }
-
-  if (packageId) {
-    const pkg = await getPackage(packageId);
-    if (!pkg || !pkg.active) {
-      return { status: "error", message: "Сонгосон багц олдсонгүй." };
-    }
-    const available = await getPackageAvailableSlots(packageId, staffId, date);
-    if (!available.includes(time)) {
-      return {
-        status: "error",
-        message: "Уучлаарай, энэ цаг боломжгүй болсон байна. Өөр цаг сонгоно уу.",
-      };
-    }
-    itemName = pkg.name;
-  } else {
-    const service = await getService(serviceId);
-    const staffList = await getStaffForService(serviceId);
-    if (!service || !staffList.some((s) => s.id === staffId)) {
-      return { status: "error", message: "Сонгосон үйлчилгээ эсвэл мастер олдсонгүй." };
-    }
-    // Re-validate on the server: the slot must still be genuinely available
-    // (not booked, within hours, not in the past).
-    const available = await getAvailableSlots(serviceId, staffId, date);
-    if (!available.includes(time)) {
-      return {
-        status: "error",
-        message: "Уучлаарай, энэ цаг боломжгүй болсон байна. Өөр цаг сонгоно уу.",
-      };
-    }
-    itemName = service.name;
-  }
+  // validateDraft мастер, үйлчилгээ/багцыг аль хэдийн шалгасан.
+  const staff = (await getStaffMember(draft.staffId))!;
+  const itemName = await draftItemName(draft);
 
   let booking;
   try {
     booking = await createBooking({
-      serviceId: packageId ? "" : serviceId,
-      packageId: packageId || undefined,
-      staffId,
-      date,
-      time,
-      customerName,
-      customerPhone,
-      note,
-      // Ажилтны хамаарах салбар давуу эрхтэй; байхгүй бол формоос сонгосон салбар.
-      locationId: staff.locationId ?? locationId ?? undefined,
+      serviceId: draft.packageId ? "" : draft.serviceId,
+      packageId: draft.packageId,
+      staffId: draft.staffId,
+      date: draft.date,
+      time: draft.time,
+      customerName: draft.customerName,
+      customerPhone: draft.customerPhone,
+      note: draft.note,
+      // Ажилтны хамаарах салбар давуу эрхтэй; байхгүй бол формоос сонгосон
+      // салбар. Хоосон мөр ирж болох тул `??` биш `||` ашиглана.
+      locationId: staff.locationId || draft.locationId || undefined,
     });
   } catch (e) {
     // Race safety net: the DB unique index rejected a slot taken microseconds ago.
@@ -237,43 +328,172 @@ export async function bookAction(
         message: "Уучлаарай, энэ цаг дөнгөж захиалагдлаа. Өөр цаг сонгоно уу.",
       };
     }
+    // Захиалгын код дараалан давхцав — маш ховор, дахин илгээхэд арилна.
+    if ((e as Error).message === "CODE_EXHAUSTED") {
+      return {
+        status: "error",
+        message: "Захиалга бүртгэхэд түр саатал гарлаа. Дахин илгээнэ үү.",
+      };
+    }
     throw e;
   }
   revalidatePath("/admin/bookings");
 
   // Notify admin(s) and the assigned staff member by email (no-ops if unset).
-  const adminList = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim())
-    .filter(Boolean);
-  const recipients = Array.from(new Set([...adminList, ...(staff.email ? [staff.email] : [])]));
   const { salonName } = await getSettings();
   await sendEmail({
-    to: recipients,
-    subject: `Шинэ захиалга — ${itemName} (${formatDate(date)} ${time})`,
+    to: notifyRecipients(staff.email),
+    subject: `Шинэ захиалга — ${itemName} (${formatDate(draft.date)} ${draft.time})`,
     html: newBookingEmail({
       salonName,
-      service: packageId ? `🎁 ${itemName} (багц)` : itemName,
+      service: itemName,
       staff: staff.name,
-      date: formatDate(date),
-      time,
-      customerName,
-      customerPhone,
-      note,
+      date: formatDate(draft.date),
+      time: draft.time,
+      customerName: draft.customerName,
+      customerPhone: draft.customerPhone,
+      note: draft.note,
     }),
   });
 
   return {
     status: "success",
     summary: {
-      service: packageId ? `${itemName} (багц)` : itemName,
+      service: itemName,
       staff: staff.name,
-      date,
-      time,
+      date: draft.date,
+      time: draft.time,
       code: booking.code,
-      phone: customerPhone,
+      phone: draft.customerPhone,
     },
   };
+}
+
+/* ---------------- Урьдчилгаа төлбөр ---------------- */
+
+export type StartPaymentState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | {
+      status: "invoice";
+      paymentId: string;
+      amount: number;
+      /** Туршилтын горим — бодит мөнгө хөдлөхгүй, гараар баталгаажуулна. */
+      mock: boolean;
+      qrText?: string;
+      qrImage?: string;
+      payUrl?: string;
+      expiresAt: string;
+    };
+
+/**
+ * Урьдчилгаатай захиалгын эхний алхам: цагийг шалгаад нэхэмжлэх үүсгэнэ.
+ * Захиалга ЭНД үүсэхгүй — төлбөр баталгаажсаны дараа л үүснэ.
+ */
+export async function startBookingPaymentAction(
+  _prev: StartPaymentState,
+  formData: FormData,
+): Promise<StartPaymentState> {
+  const draft = readBookingForm(formData);
+  const invalid = await validateDraft(draft);
+  if (invalid) return { status: "error", message: invalid };
+
+  const { depositAmount } = await getSettings();
+  if (depositAmount <= 0) {
+    return { status: "error", message: "Урьдчилгаа тохируулаагүй байна." };
+  }
+
+  const provider = resolveProvider();
+  const payment = await createPayment({
+    amount: depositAmount,
+    provider: provider.name,
+    draft,
+  });
+
+  try {
+    const invoice = await provider.createInvoice({
+      paymentId: payment.id,
+      amount: depositAmount,
+      description: `${await draftItemName(draft)} — ${formatDate(draft.date)} ${draft.time}`,
+      callbackUrl: callbackUrl(),
+    });
+    await updatePayment(payment.id, { invoiceId: invoice.invoiceId });
+    return {
+      status: "invoice",
+      paymentId: payment.id,
+      amount: depositAmount,
+      mock: isMockPayment(),
+      qrText: invoice.qrText,
+      qrImage: invoice.qrImage,
+      payUrl: invoice.payUrl,
+      expiresAt: payment.expiresAt,
+    };
+  } catch (e) {
+    await updatePayment(payment.id, {
+      status: "expired",
+      error: (e as Error).message,
+    });
+    return {
+      status: "error",
+      message: "Төлбөрийн нэхэмжлэх үүсгэхэд алдаа гарлаа. Дахин оролдоно уу.",
+    };
+  }
+}
+
+export type PaymentProgress =
+  | { state: "pending" }
+  | { state: "paid"; code: string }
+  | { state: "failed"; message: string };
+
+/** Төлбөрийн явцыг шалгана — үйлчлүүлэгчийн дэлгэц үүгээр шинэчлэгдэнэ. */
+export async function getPaymentProgressAction(
+  paymentId: string,
+): Promise<PaymentProgress> {
+  const payment = await getPayment(paymentId);
+  if (!payment) return { state: "failed", message: "Төлбөр олдсонгүй." };
+
+  if (payment.status === "paid" && payment.bookingId) {
+    const booking = await getBooking(payment.bookingId);
+    return booking
+      ? { state: "paid", code: booking.code }
+      : { state: "failed", message: "Захиалга олдсонгүй." };
+  }
+  if (payment.status === "refund_due" || payment.status === "refunded") {
+    return {
+      state: "failed",
+      message:
+        "Уучлаарай, төлбөр хийгдэх хооронд энэ цаг завгүй болжээ. Төлбөрийг тань буцаана — салон тантай холбогдоно.",
+    };
+  }
+  if (payment.status === "expired" || new Date(payment.expiresAt) < new Date()) {
+    return {
+      state: "failed",
+      message: "Төлбөрийн хугацаа дууслаа. Захиалгаа дахин үүсгэнэ үү.",
+    };
+  }
+  return { state: "pending" };
+}
+
+/**
+ * Туршилтын горимд төлбөрийг гараар баталгаажуулна. Бодит систем холбогдсон
+ * үед энэ үйлдэл ажиллахгүй — мөнгө хүлээж авалгүй захиалга үүсгэх боломжгүй.
+ */
+export async function mockPayAction(paymentId: string): Promise<PaymentProgress> {
+  if (!isMockPayment()) {
+    return { state: "failed", message: "Энэ үйлдэл зөвхөн туршилтын горимд ажиллана." };
+  }
+  const result = await finalizePaidBooking(paymentId);
+  if (!result.ok) return { state: "failed", message: result.message };
+  revalidatePath("/admin/bookings");
+  revalidatePath("/portal");
+  return { state: "paid", code: result.booking.code };
+}
+
+/** Админ буцаалт хийснээ тэмдэглэнэ (мөнгө нь банкаар гараар буцаана). */
+export async function markRefundedAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  await updatePayment(String(formData.get("id") ?? ""), { status: "refunded" });
+  revalidatePath("/admin/payments");
 }
 
 /* ---------------- Customer: "Миний захиалга" ---------------- */
@@ -380,6 +600,7 @@ export async function cancelMyBookingAction(
   await updateBookingStatus(booking.id, "cancelled");
   revalidatePath("/admin/bookings");
   revalidatePath("/portal");
+  await notifyCancellation(booking, "customer");
   return { ok: true, message: "Захиалга цуцлагдлаа." };
 }
 
@@ -554,6 +775,100 @@ export async function deleteBookingAction(formData: FormData): Promise<void> {
   revalidatePath("/admin/bookings");
 }
 
+export type AdminBookState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "success"; code: string; summary: string };
+
+/**
+ * Админ өөрөө захиалга бүртгэнэ — утсаар залгасан үйлчлүүлэгчид зориулав.
+ * Захиалгын кодыг буцаана: админ утсаар уншиж өгөх ёстой.
+ *
+ * "Хуваариас гадуур" тэмдэглэвэл ажлын цаг/сул цагийн шалгалтыг алгасана
+ * (онцгой тохиолдолд шургуулж оруулах). Нэг мастерын яг нэг цагт хоёр
+ * захиалга орохоос мэдээллийн сангийн индекс хамгаална.
+ */
+export async function adminCreateBookingAction(
+  _prev: AdminBookState,
+  formData: FormData,
+): Promise<AdminBookState> {
+  await requireAdmin();
+
+  const draft = readBookingForm(formData);
+  const ignoreHours = formData.get("ignoreHours") !== null;
+  const confirmNow = formData.get("confirmNow") !== null;
+
+  // «Хуваариас гадуур» тэмдэглэвэл ажлын цаг/сул цагийн шалгалтыг алгасна.
+  const invalid = await validateDraft(draft, { checkAvailability: !ignoreHours });
+  if (invalid) {
+    return {
+      status: "error",
+      message: ignoreHours
+        ? invalid
+        : `${invalid} Шаардлагатай бол «Хуваариас гадуур» тэмдэглэнэ үү.`,
+    };
+  }
+
+  const staff = (await getStaffMember(draft.staffId))!;
+  const itemName = await draftItemName(draft);
+
+  let booking;
+  try {
+    booking = await createBooking({
+      serviceId: draft.packageId ? "" : draft.serviceId,
+      packageId: draft.packageId,
+      staffId: draft.staffId,
+      date: draft.date,
+      time: draft.time,
+      customerName: draft.customerName,
+      customerPhone: draft.customerPhone,
+      note: draft.note,
+      locationId: staff.locationId || draft.locationId || undefined,
+      status: confirmNow ? "confirmed" : "pending",
+    });
+  } catch (e) {
+    const message = (e as Error).message;
+    if (message === "SLOT_TAKEN") {
+      return {
+        status: "error",
+        message: "Энэ мастерын тухайн цагт өөр захиалга бүртгэгдсэн байна.",
+      };
+    }
+    if (message === "CODE_EXHAUSTED") {
+      return { status: "error", message: "Түр саатал гарлаа. Дахин оролдоно уу." };
+    }
+    throw e;
+  }
+
+  revalidatePath("/admin/bookings");
+  revalidatePath("/portal");
+
+  // Мастерт нь мэдэгдэнэ. Админд илгээхгүй — өөрөө бүртгэсэн тул.
+  if (staff.email) {
+    const { salonName } = await getSettings();
+    await sendEmail({
+      to: [staff.email],
+      subject: `Шинэ захиалга — ${itemName} (${formatDate(draft.date)} ${draft.time})`,
+      html: newBookingEmail({
+        salonName,
+        service: itemName,
+        staff: staff.name,
+        date: formatDate(draft.date),
+        time: draft.time,
+        customerName: draft.customerName,
+        customerPhone: draft.customerPhone,
+        note: draft.note,
+      }),
+    });
+  }
+
+  return {
+    status: "success",
+    code: booking.code,
+    summary: `${itemName} · ${staff.name} · ${formatDate(draft.date)} ${draft.time}`,
+  };
+}
+
 /* ---------------- Staff portal ---------------- */
 
 /** A staff member updates the status of one of THEIR OWN bookings. */
@@ -572,6 +887,8 @@ export async function staffSetBookingStatusAction(formData: FormData): Promise<v
   }
 
   await updateBookingStatus(id, status);
+  // Мастер цагаа цуцалбал админд мэдэгдэнэ — хуваарь өөрчлөгдсөнийг мэдэх нь чухал.
+  if (status === "cancelled") await notifyCancellation(booking, "staff");
   revalidatePath("/portal");
   revalidatePath("/admin/bookings");
 }
@@ -635,6 +952,8 @@ export async function updateSettingsAction(formData: FormData): Promise<void> {
     email: text("email", 80),
     about: text("about", 1000),
     heroImageUrl: await resolveImage(formData, current.heroImageUrl),
+    // Урьдчилгаа: 0 = авахгүй. Хэт өндөр дүнгээс хамгаалж дээд хязгаартай.
+    depositAmount: Math.min(1_000_000, Math.max(0, parsePrice(formData.get("depositAmount")))),
   };
   await updateSettings(patch);
 

@@ -89,6 +89,40 @@ export default async function AdminSettingsPage() {
 
         <section>
           <h2 className="font-display text-lg font-semibold text-foreground">
+            Урьдчилгаа төлбөр
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Захиалга бүрт авах урьдчилгаа. <b>0 бол урьдчилгаа авахгүй</b> — цаг
+            шууд захиалагдана. Дүн тавьсан үед үйлчлүүлэгч төлбөрөө хийтэл цаг
+            баталгаажихгүй тул ирэхгүй өнжих (no-show) багасна.
+          </p>
+          <div className="mt-4 max-w-xs">
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-foreground">
+                Урьдчилгааны дүн (₮)
+              </span>
+              <input
+                name="depositAmount"
+                inputMode="numeric"
+                defaultValue={settings.depositAmount}
+                placeholder="10000"
+                className="sinput"
+              />
+            </label>
+          </div>
+          <p className="mt-3 rounded-xl bg-surface-2/70 px-4 py-3 text-xs leading-5 text-muted">
+            ⚠️ Төлбөрийн систем хараахан холбогдоогүй байна — одоогоор{" "}
+            <b>туршилтын горимд</b> ажиллана (бодит мөнгө хөдлөхгүй). QPay
+            merchant данс авмагц холбоно.{" "}
+            <Link href="/admin/payments" className="text-primary hover:underline">
+              Төлбөрүүд
+            </Link>{" "}
+            хуудаснаас явцыг харна.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-display text-lg font-semibold text-foreground">
             Нүүр хуудасны зураг
           </h2>
           <p className="mt-1 text-sm text-muted">

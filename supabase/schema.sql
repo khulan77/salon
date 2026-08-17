@@ -99,6 +99,11 @@ alter table public.bookings add column if not exists package_id text;
 alter table public.bookings add column if not exists code text;
 create unique index if not exists bookings_code_key on public.bookings (code);
 
+-- Нэг мастерын нэг цагт хоёр захиалга орохоос сэргийлнэ (цуцлагдсаныг тооцохгүй).
+create unique index if not exists bookings_staff_slot_key
+  on public.bookings (staff_id, date, time)
+  where status <> 'cancelled';
+
 create table if not exists public.reviews (
   id            text primary key,
   customer_name text not null,
@@ -107,6 +112,24 @@ create table if not exists public.reviews (
   active        boolean not null default true,
   created_at    timestamptz not null default now()
 );
+
+-- Урьдчилгаа төлбөр. Төлбөр төлөгдтөл захиалга үүсэхгүй тул захиалгын
+-- "ноорог"-ийг энд хадгалж, баталгаажмагц bookings руу бичнэ.
+create table if not exists public.payments (
+  id          text primary key,
+  -- pending | paid | expired | refund_due | refunded
+  status      text not null default 'pending',
+  amount      integer not null default 0,
+  provider    text not null default 'mock',
+  invoice_id  text,
+  booking_id  text,
+  draft       jsonb not null default '{}'::jsonb,
+  error       text not null default '',
+  expires_at  timestamptz not null default now() + interval '15 minutes',
+  created_at  timestamptz not null default now(),
+  paid_at     timestamptz
+);
+create index if not exists payments_status_idx on public.payments (status, created_at desc);
 
 create table if not exists public.settings (
   id           integer primary key default 1,
@@ -125,10 +148,13 @@ create table if not exists public.settings (
   map_coords   text not null default '',
   -- Нүүр хуудасны эхний (hero) зураг.
   hero_image_url text,
+  -- Урьдчилгааны дүн. 0 = урьдчилгаа авахгүй.
+  deposit_amount integer not null default 0,
   constraint settings_singleton check (id = 1)
 );
 
 alter table public.settings add column if not exists hero_image_url text;
+alter table public.settings add column if not exists deposit_amount integer not null default 0;
 
 -- Lock down: enable RLS, add no policies (service-role key still bypasses it).
 alter table public.services  enable row level security;
@@ -138,3 +164,4 @@ alter table public.reviews   enable row level security;
 alter table public.settings  enable row level security;
 alter table public.locations enable row level security;
 alter table public.packages  enable row level security;
+alter table public.payments  enable row level security;

@@ -34,6 +34,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|uploads|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // api/ — гадны системийн webhook. Cookie-гүй тул session сэргээх шаардлагагүй.
+    "/((?!api/|_next/static|_next/image|favicon.ico|uploads|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

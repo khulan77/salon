@@ -7,8 +7,11 @@ import {
   bookAction,
   getAvailableSlotsAction,
   getPackageAvailableSlotsAction,
+  startBookingPaymentAction,
   type BookState,
+  type StartPaymentState,
 } from "@/app/lib/actions";
+import PaymentStep from "./payment-step";
 import { rememberEntry } from "@/app/lib/my-bookings-store";
 import { salonToday } from "@/app/lib/time";
 import {
@@ -28,6 +31,7 @@ export default function BookingForm({
   staff,
   locations,
   packages,
+  depositAmount,
   initialServiceId,
   initialStaffId,
   initialLocationId,
@@ -37,11 +41,14 @@ export default function BookingForm({
   staff: Staff[];
   locations: Location[];
   packages: ServicePackage[];
+  /** 0 бол урьдчилгаагүй — захиалга шууд үүснэ. */
+  depositAmount: number;
   initialServiceId?: string;
   initialStaffId?: string;
   initialLocationId?: string;
   initialPackageId?: string;
 }) {
+  const needsDeposit = depositAmount > 0;
   const multiBranch = locations.length > 1;
 
   // Алхмуудыг салбартай эсэхээс хамааруулан бүрдүүлнэ.
@@ -72,11 +79,17 @@ export default function BookingForm({
   const [time, setTime] = useState("");
   const [slots, setSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [dismissedInvoice, setDismissedInvoice] = useState("");
 
   const [state, formAction, pending] = useActionState<BookState, FormData>(
     bookAction,
     { status: "idle" },
   );
+  // Урьдчилгаатай үед захиалгын оронд нэхэмжлэх үүсгэнэ.
+  const [payState, payFormAction, payPending] = useActionState<
+    StartPaymentState,
+    FormData
+  >(startBookingPaymentAction, { status: "idle" });
 
   const stepKey = stepKeys[step];
   const isLast = step === stepKeys.length - 1;
@@ -121,9 +134,11 @@ export default function BookingForm({
     }
     let active = true;
     setLoadingSlots(true);
+    // Салбарыг дамжуулна — салбаргүй (хөвөгч) мастерын ажлын цагийг
+    // үйлчлүүлэгчийн сонгосон салбарын хуваарийн дагуу тооцно.
     const req = packageId
-      ? getPackageAvailableSlotsAction(packageId, staffId, date)
-      : getAvailableSlotsAction(serviceId, staffId, date);
+      ? getPackageAvailableSlotsAction(packageId, staffId, date, locationId)
+      : getAvailableSlotsAction(serviceId, staffId, date, locationId);
     req
       .then((s) => {
         if (active) setSlots(s);
@@ -134,7 +149,7 @@ export default function BookingForm({
     return () => {
       active = false;
     };
-  }, [serviceId, packageId, staffId, date]);
+  }, [serviceId, packageId, staffId, date, locationId]);
 
   // Reset time if it is no longer available.
   useEffect(() => {
@@ -168,6 +183,21 @@ export default function BookingForm({
     setPackageId(id);
     setServiceId("");
   };
+
+  // Урьдчилгаа: нэхэмжлэх үүссэн бол төлбөрийн дэлгэц рүү шилжинэ. Хаясан
+  // нэхэмжлэхийн id-г санаж, дахин сонголт руу буцаана.
+  if (payState.status === "invoice" && payState.paymentId !== dismissedInvoice) {
+    return (
+      <PaymentStep
+        invoice={payState}
+        onExpired={() => {
+          setDismissedInvoice(payState.paymentId);
+          setTime("");
+          setStep(stepKeys.indexOf("datetime"));
+        }}
+      />
+    );
+  }
 
   if (state.status === "success") {
     return (
@@ -480,7 +510,7 @@ export default function BookingForm({
 
         {/* Step: contact + confirm */}
         {stepKey === "contact" && (
-          <form action={formAction}>
+          <form action={needsDeposit ? payFormAction : formAction}>
             <h2 className="font-display text-xl font-semibold text-foreground">
               Холбоо барих мэдээлэл
             </h2>
@@ -569,9 +599,24 @@ export default function BookingForm({
               )}
             </div>
 
-            {state.status === "error" && (
+            {needsDeposit && (
+              <div className="mt-4 flex items-center justify-between rounded-2xl bg-primary-soft/50 px-5 py-4 text-sm">
+                <span className="text-foreground">
+                  Урьдчилгаа
+                  <span className="ml-2 text-xs text-muted">
+                    цагаа баталгаажуулахад
+                  </span>
+                </span>
+                <span className="font-display text-lg text-primary">
+                  {formatPrice(depositAmount)}
+                </span>
+              </div>
+            )}
+
+            {(state.status === "error" || payState.status === "error") && (
               <p className="mt-4 rounded-xl bg-primary-soft px-4 py-3 text-sm text-primary-hover">
-                {state.message}
+                {state.status === "error" ? state.message : ""}
+                {payState.status === "error" ? payState.message : ""}
               </p>
             )}
 
@@ -585,10 +630,14 @@ export default function BookingForm({
               </button>
               <button
                 type="submit"
-                disabled={pending}
+                disabled={pending || payPending}
                 className="rounded-full bg-primary px-8 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
               >
-                {pending ? "Илгээж байна…" : "Захиалга баталгаажуулах"}
+                {pending || payPending
+                  ? "Илгээж байна…"
+                  : needsDeposit
+                    ? "Урьдчилгаа төлөх →"
+                    : "Захиалга баталгаажуулах"}
               </button>
             </div>
           </form>

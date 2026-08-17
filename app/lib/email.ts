@@ -34,6 +34,37 @@ export async function sendEmail(opts: {
   }
 }
 
+/** Үйлчлүүлэгчийн бичсэн текст имэйлийн HTML-ийг эвдэхээс сэргийлнэ. */
+function esc(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+const row = (label: string, value: string) =>
+  `<tr><td style="padding:6px 12px;color:#8a7d72">${label}</td>` +
+  `<td style="padding:6px 12px;color:#2e2723;font-weight:600">${esc(value)}</td></tr>`;
+
+/** Мэдэгдлийн имэйлийн ерөнхий хүрээ — толгой, мөрүүдийн хүснэгт, тайлбар. */
+function emailShell(opts: {
+  salonName: string;
+  lead: string;
+  rows: string[];
+  footer: string;
+}): string {
+  return `
+  <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#faf6f1;padding:24px;border-radius:16px">
+    <h1 style="font-size:20px;color:#b76e79;margin:0 0 4px">${esc(opts.salonName)} ✦</h1>
+    <p style="color:#2e2723;margin:0 0 16px">${opts.lead}</p>
+    <table style="width:100%;background:#fff;border-radius:12px;border-collapse:separate;border-spacing:0;overflow:hidden">
+      ${opts.rows.join("")}
+    </table>
+    <p style="color:#8a7d72;font-size:12px;margin:16px 0 0">${opts.footer}</p>
+  </div>`;
+}
+
 /** HTML for the "new booking" notification sent to admin + assigned staff. */
 export function newBookingEmail(b: {
   salonName: string;
@@ -45,22 +76,50 @@ export function newBookingEmail(b: {
   customerPhone: string;
   note?: string;
 }): string {
-  const row = (label: string, value: string) =>
-    `<tr><td style="padding:6px 12px;color:#8a7d72">${label}</td>` +
-    `<td style="padding:6px 12px;color:#2e2723;font-weight:600">${value}</td></tr>`;
-  return `
-  <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#faf6f1;padding:24px;border-radius:16px">
-    <h1 style="font-size:20px;color:#b76e79;margin:0 0 4px">${b.salonName} ✦</h1>
-    <p style="color:#2e2723;margin:0 0 16px">Шинэ цаг захиалга ирлээ 🎉</p>
-    <table style="width:100%;background:#fff;border-radius:12px;border-collapse:separate;border-spacing:0;overflow:hidden">
-      ${row("Үйлчилгээ", b.service)}
-      ${row("Мастер", b.staff)}
-      ${row("Огноо", b.date)}
-      ${row("Цаг", b.time)}
-      ${row("Үйлчлүүлэгч", b.customerName)}
-      ${row("Утас", b.customerPhone)}
-      ${b.note ? row("Тэмдэглэл", b.note) : ""}
-    </table>
-    <p style="color:#8a7d72;font-size:12px;margin:16px 0 0">Энэ бол автомат мэдэгдэл. Админ хэсгээс захиалгыг баталгаажуулна уу.</p>
-  </div>`;
+  return emailShell({
+    salonName: b.salonName,
+    lead: "Шинэ цаг захиалга ирлээ 🎉",
+    rows: [
+      row("Үйлчилгээ", b.service),
+      row("Мастер", b.staff),
+      row("Огноо", b.date),
+      row("Цаг", b.time),
+      row("Үйлчлүүлэгч", b.customerName),
+      row("Утас", b.customerPhone),
+      b.note ? row("Тэмдэглэл", b.note) : "",
+    ],
+    footer: "Энэ бол автомат мэдэгдэл. Админ хэсгээс захиалгыг баталгаажуулна уу.",
+  });
+}
+
+/**
+ * Захиалга цуцлагдсан тухай мэдэгдэл. Хэн цуцалсныг (үйлчлүүлэгч эсвэл
+ * мастер) тодруулж бичнэ — админ хуваарийг шууд ойлгоно.
+ */
+export function cancelledBookingEmail(b: {
+  salonName: string;
+  service: string;
+  staff: string;
+  date: string;
+  time: string;
+  customerName: string;
+  customerPhone: string;
+  code: string;
+  by: "customer" | "staff";
+}): string {
+  const who = b.by === "staff" ? "Мастер" : "Үйлчлүүлэгч";
+  return emailShell({
+    salonName: b.salonName,
+    lead: `❌ Захиалга цуцлагдлаа — ${who.toLowerCase()} цуцалсан байна.`,
+    rows: [
+      row("Үйлчилгээ", b.service),
+      row("Мастер", b.staff),
+      row("Огноо", b.date),
+      row("Цаг", b.time),
+      row("Үйлчлүүлэгч", b.customerName),
+      row("Утас", b.customerPhone),
+      row("Захиалгын код", b.code),
+    ],
+    footer: "Энэ цаг дахин сул болсон тул өөр үйлчлүүлэгчид санал болгож болно.",
+  });
 }

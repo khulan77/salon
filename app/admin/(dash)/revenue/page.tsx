@@ -1,5 +1,5 @@
 import { getBookings, getPackages, getServices, getStaff } from "@/app/lib/db";
-import { effectivePrice, formatPrice } from "@/app/lib/format";
+import { bookingPrice, effectivePrice, formatPrice } from "@/app/lib/format";
 import { salonToday } from "@/app/lib/time";
 import type { Booking } from "@/app/lib/types";
 
@@ -19,11 +19,7 @@ export default async function AdminRevenuePage() {
   ]);
 
   // Орлогыг хямдрал тооцсон бодит үнээр бодно. Багц захиалга бол багцын үнэ.
-  const priceOf = (b: Booking) => {
-    if (b.packageId) return packages.find((p) => p.id === b.packageId)?.price ?? 0;
-    const svc = services.find((s) => s.id === b.serviceId);
-    return svc ? effectivePrice(svc) : 0;
-  };
+  const priceOf = (b: Booking) => bookingPrice(b, services, packages);
 
   const done = bookings.filter((b) => b.status === "done");
   const confirmed = bookings.filter((b) => b.status === "confirmed");

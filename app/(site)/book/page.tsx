@@ -1,4 +1,10 @@
-import { getEffectiveLocations, getPackages, getServices, getStaff } from "@/app/lib/db";
+import {
+  getEffectiveLocations,
+  getPackages,
+  getServices,
+  getSettings,
+  getStaff,
+} from "@/app/lib/db";
 import { getSelectedLocationId, resolveLocation } from "@/app/lib/location";
 import BookingForm from "./booking-form";
 
@@ -10,13 +16,15 @@ export default async function BookPage({
   searchParams: Promise<{ service?: string; staff?: string; location?: string; package?: string }>;
 }) {
   const sp = await searchParams;
-  const [services, staff, locations, packages, cookieLocationId] = await Promise.all([
-    getServices({ activeOnly: true }),
-    getStaff({ activeOnly: true }),
-    getEffectiveLocations(),
-    getPackages({ activeOnly: true }),
-    getSelectedLocationId(),
-  ]);
+  const [services, staff, locations, packages, cookieLocationId, settings] =
+    await Promise.all([
+      getServices({ activeOnly: true }),
+      getStaff({ activeOnly: true }),
+      getEffectiveLocations(),
+      getPackages({ activeOnly: true }),
+      getSelectedLocationId(),
+      getSettings(),
+    ]);
   // URL-ийн ?location давуу эрхтэй, дараа нь cookie-гийн сонголт.
   const initial = resolveLocation(locations, sp.location ?? cookieLocationId);
 
@@ -38,6 +46,7 @@ export default async function BookPage({
           staff={staff}
           locations={locations}
           packages={packages}
+          depositAmount={settings.depositAmount}
           initialServiceId={sp.service}
           initialStaffId={sp.staff}
           initialLocationId={initial?.id}

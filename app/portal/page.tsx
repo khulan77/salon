@@ -17,7 +17,7 @@ export const metadata = { title: "Миний хуваарь" };
 
 export default async function PortalPage() {
   const session = await getSession();
-  // Layout guarantees a staff session, but guard for types.
+
   if (!session || session.role !== "staff") return null;
 
   const [allBookings, services, packages] = await Promise.all([
@@ -29,7 +29,6 @@ export default async function PortalPage() {
     (b) => b.staffId === session.staffId && b.status !== "cancelled",
   );
 
-  // Захиалгын үйлчилгээ эсвэл багцыг нэг хэлбэрт хөрвүүлнэ.
   const itemOf = (b: Booking) => {
     if (b.packageId) {
       const p = packages.find((x) => x.id === b.packageId);

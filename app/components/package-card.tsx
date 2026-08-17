@@ -2,11 +2,6 @@ import Link from "next/link";
 import type { Service, ServicePackage } from "@/app/lib/types";
 import { formatDuration, formatPrice, packageTotals } from "@/app/lib/format";
 
-/**
- * Багцын карт — үйлчилгээний картын арктай ижил хэл. Багц нь хэд хэдэн
- * үйлчилгээнээс бүрдэх тул арк дотор багтах үйлчилгээнүүдийн зургийг
- * коллаж болгон харуулна. Зураггүй бол эможи дүрслэл рүү буцна.
- */
 export default function PackageCard({
   pkg,
   services,
@@ -32,12 +27,12 @@ export default function PackageCard({
           </span>
         ) : (
           <div className="flex h-full w-full gap-0.5 transition-transform duration-700 ease-out group-hover:scale-[1.06]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+      
             <img src={images[0]} alt="" className="h-full flex-1 object-cover" />
             {images.length > 1 && (
               <div className="flex h-full flex-1 flex-col gap-0.5">
                 {images.slice(1).map((src) => (
-                  // eslint-disable-next-line @next/next/no-img-element
+
                   <img key={src} src={src} alt="" className="min-h-0 flex-1 object-cover" />
                 ))}
               </div>

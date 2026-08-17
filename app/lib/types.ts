@@ -89,6 +89,44 @@ export type MyBooking = {
   cancellable: boolean;
 };
 
+/**
+ * Урьдчилгаа төлбөрийн төлөв.
+ *  refund_due — төлбөр орсон ч цагийг нь өөр хүн авсан. Салон буцаалт хийнэ.
+ */
+export type PaymentStatus =
+  | "pending"
+  | "paid"
+  | "expired"
+  | "refund_due"
+  | "refunded";
+
+/** Төлбөр төлөгдтөл захиалга үүсэхгүй тул түүний ноорогийг хадгална. */
+export type BookingDraft = {
+  serviceId: string;
+  packageId?: string;
+  staffId: string;
+  date: string;
+  time: string;
+  customerName: string;
+  customerPhone: string;
+  note: string;
+  locationId?: string;
+};
+
+export type Payment = {
+  id: string;
+  status: PaymentStatus;
+  amount: number;
+  provider: string; // "mock" | "qpay" | …
+  invoiceId?: string; // гадаад системийн нэхэмжлэхийн дугаар
+  bookingId?: string; // төлөгдсөний дараа үүссэн захиалга
+  draft: BookingDraft;
+  error: string;
+  expiresAt: string; // ISO
+  createdAt: string; // ISO
+  paidAt?: string; // ISO
+};
+
 export type Review = {
   id: string;
   customerName: string;
@@ -113,6 +151,7 @@ export type Settings = {
   about: string;
   mapCoords: string; // хаягаас автоматаар олдсон "47.9185,106.9177"
   heroImageUrl?: string; // нүүр хуудасны эхний зураг; байхгүй бол эможи дүрслэл
+  depositAmount: number; // урьдчилгааны дүн ₮; 0 = урьдчилгаа авахгүй
 };
 
 export type Database = {

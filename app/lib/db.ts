@@ -3,7 +3,11 @@ import { supabaseService } from "./supabase/service";
 import { salonNowMinutes, salonToday } from "./time";
 import type {
   Booking,
+  BookingDraft,
+  BookingStatus,
   Location,
+  Payment,
+  PaymentStatus,
   Review,
   Service,
   ServicePackage,
@@ -23,6 +27,7 @@ const DEFAULT_SETTINGS: Settings = {
   address: "",
   about: "",
   mapCoords: "",
+  depositAmount: 0,
 };
 
 function toMinutes(hhmm: string): number {
@@ -161,8 +166,10 @@ const bookingFromRow = (r: any): Booking => ({
   note: r.note ?? "",
   status: r.status,
   code: r.code ?? "",
-  locationId: r.location_id ?? undefined,
-  packageId: r.package_id ?? undefined,
+  // Хоосон мөрийг "салбаргүй" гэж үзнэ — эс тэгвээс мастерын салбар руу
+  // унах fallback ажиллахгүй.
+  locationId: r.location_id || undefined,
+  packageId: r.package_id || undefined,
   createdAt: r.created_at,
 });
 
@@ -195,6 +202,21 @@ const settingsFromRow = (r: any): Settings => ({
   about: r.about ?? "",
   mapCoords: r.map_coords ?? "",
   heroImageUrl: r.hero_image_url ?? undefined,
+  depositAmount: r.deposit_amount ?? 0,
+});
+
+const paymentFromRow = (r: any): Payment => ({
+  id: r.id,
+  status: r.status,
+  amount: r.amount ?? 0,
+  provider: r.provider ?? "mock",
+  invoiceId: r.invoice_id ?? undefined,
+  bookingId: r.booking_id ?? undefined,
+  draft: (r.draft ?? {}) as BookingDraft,
+  error: r.error ?? "",
+  expiresAt: r.expires_at,
+  createdAt: r.created_at,
+  paidAt: r.paid_at ?? undefined,
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -410,6 +432,90 @@ export async function getBookings(): Promise<Booking[]> {
   return must(data, error).map(bookingFromRow);
 }
 
+/** Админы жагсаалтад хэрэглэх шүүлтүүд. Хоосон талбарыг тооцохгүй. */
+export type BookingFilter = {
+  status?: BookingStatus;
+  from?: string; // YYYY-MM-DD, багтаана
+  to?: string; // YYYY-MM-DD, багтаана
+  locationId?: string;
+  search?: string; // нэр / утас / захиалгын код
+};
+
+/** PostgREST-ийн or() шүүлтийг эвдэх тэмдэгтүүдийг цэвэрлэнэ. */
+function cleanSearch(value: string): string {
+  return value.replace(/[,()%*\\"]/g, " ").trim().slice(0, 60);
+}
+
+/**
+ * Шүүлт хэрэглэсэн query. Жагсаалт ба тоолол хоёулаа үүнийг ашиглана —
+ * ингэснээр харагдаж буй тоо, жагсаалт хоёр үргэлж нийцнэ.
+ */
+function filteredBookings(filter: BookingFilter, opts?: { head?: boolean }) {
+  let q = db()
+    .from("bookings")
+    .select("*", { count: "exact", head: opts?.head ?? false });
+
+  if (filter.status) q = q.eq("status", filter.status);
+  if (filter.from) q = q.gte("date", filter.from);
+  if (filter.to) q = q.lte("date", filter.to);
+  if (filter.locationId) q = q.eq("location_id", filter.locationId);
+
+  const search = cleanSearch(filter.search ?? "");
+  if (search) {
+    // Код үргэлж том үсгээр хадгалагддаг тул тэр талбарт томоор нь хайна.
+    q = q.or(
+      `customer_name.ilike.%${search}%,` +
+        `customer_phone.ilike.%${search}%,` +
+        `code.ilike.%${search.toUpperCase()}%`,
+    );
+  }
+  return q;
+}
+
+/**
+ * Админы захиалгын жагсаалт — шүүлт, хайлт, хуудаслалт бүгд мэдээллийн санд
+ * хийгдэнэ. `total` нь хуудаслахаас өмнөх нийт тоо.
+ */
+export async function searchBookings(
+  filter: BookingFilter & {
+    order?: "asc" | "desc";
+    limit?: number;
+    offset?: number;
+  },
+): Promise<{ rows: Booking[]; total: number }> {
+  const ascending = filter.order === "asc";
+  let q = filteredBookings(filter)
+    .order("date", { ascending })
+    .order("time", { ascending });
+
+  if (filter.limit !== undefined) {
+    const from = filter.offset ?? 0;
+    q = q.range(from, from + filter.limit - 1);
+  }
+
+  const { data, error, count } = await q;
+  return { rows: must(data, error).map(bookingFromRow), total: count ?? 0 };
+}
+
+/** Төлөв бүрийн тоо — төлөвөөс бусад шүүлтийг хүндэтгэнэ (шошгон дээрх тоо). */
+export async function countBookingsByStatus(
+  filter: Omit<BookingFilter, "status">,
+): Promise<Record<BookingStatus, number>> {
+  const statuses: BookingStatus[] = [
+    "pending",
+    "confirmed",
+    "done",
+    "cancelled",
+    "no_show",
+  ];
+  const results = await Promise.all(
+    statuses.map((status) => filteredBookings({ ...filter, status }, { head: true })),
+  );
+  return Object.fromEntries(
+    statuses.map((status, i) => [status, results[i].count ?? 0]),
+  ) as Record<BookingStatus, number>;
+}
+
 export async function getBooking(id: string): Promise<Booking | undefined> {
   const { data } = await db().from("bookings").select("*").eq("id", id).maybeSingle();
   return data ? bookingFromRow(data) : undefined;
@@ -423,6 +529,14 @@ export async function countPendingBookings(): Promise<number> {
   return count ?? 0;
 }
 
+/**
+ * Захиалгын хүснэгтийн unique индексүүд. 23505 (давхцал) алдаа гарахад аль
+ * индекс зөрчигдсөнийг ялгаж, тохирох хариу өгөхөд хэрэглэнэ.
+ */
+const SLOT_INDEX = "bookings_staff_slot_key";
+const CODE_INDEX = "bookings_code_key";
+const CODE_ATTEMPTS = 5;
+
 export async function createBooking(
   input: Omit<Booking, "id" | "createdAt" | "status" | "code"> & {
     status?: Booking["status"];
@@ -430,9 +544,8 @@ export async function createBooking(
 ): Promise<Booking> {
   const id = `bkg-${randomUUID().slice(0, 8)}`;
   const status = input.status ?? "pending";
-  const code = newBookingCode();
   const createdAt = new Date().toISOString();
-  const { error } = await db().from("bookings").insert({
+  const row = {
     id,
     service_id: input.serviceId,
     staff_id: input.staffId,
@@ -442,18 +555,25 @@ export async function createBooking(
     customer_phone: input.customerPhone,
     note: input.note,
     status,
-    code,
     location_id: input.locationId ?? null,
     package_id: input.packageId ?? null,
     created_at: createdAt,
-  });
-  if (error) {
-    // Unique-index violation = the slot was taken between the availability
-    // check and this insert. Surface a typed error the caller can handle.
-    if ((error as { code?: string }).code === "23505") throw new Error("SLOT_TAKEN");
-    throw new Error(error.message);
+  };
+
+  // Код санамсаргүй үүсдэг тул ховор ч давхцаж болно — тэр тохиолдолд шинэ
+  // код гаргаад дахин оролдоно. Цаг давхцсаныг л SLOT_TAKEN гэж дамжуулна.
+  for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
+    const code = newBookingCode();
+    const { error } = await db().from("bookings").insert({ ...row, code });
+    if (!error) return { ...input, id, status, code, createdAt };
+    if (error.code !== "23505") throw new Error(error.message);
+
+    const conflict = `${error.message} ${error.details ?? ""}`;
+    // Шалгалт хийснээс хойш тэр цагийг өөр хүн авчихсан байна.
+    if (conflict.includes(SLOT_INDEX)) throw new Error("SLOT_TAKEN");
+    if (!conflict.includes(CODE_INDEX)) throw new Error(error.message);
   }
-  return { ...input, id, status, code, createdAt };
+  throw new Error("CODE_EXHAUSTED");
 }
 
 /**
@@ -483,7 +603,14 @@ export async function updateBookingStatus(
   status: Booking["status"],
 ): Promise<void> {
   const { error } = await db().from("bookings").update({ status }).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Цуцлагдсан захиалгыг эргүүлэн сэргээх үед тэр цагийг өөр захиалга
+    // эзэлчихсэн байж болно.
+    if (error.code === "23505") {
+      throw new Error("Энэ цагт өөр захиалга бүртгэгдсэн тул сэргээх боломжгүй.");
+    }
+    throw new Error(error.message);
+  }
 }
 
 export async function deleteBooking(id: string): Promise<void> {
@@ -501,11 +628,13 @@ async function computeAvailableSlots(
   staffId: string,
   date: string,
   durationMin: number,
+  locationId?: string,
 ): Promise<string[]> {
-  // Ажлын цагийг тухайн ажилтны хамаарах салбараас авна — салбар бүр
-  // өөрийн нээх/хаах цаг, амралтын өдөртэй. Салбаргүй бол эхний салбар/settings.
+  // Ажлын цагийг салбараас авна — салбар бүр өөрийн нээх/хаах цаг, амралтын
+  // өдөртэй. Ажилтан тодорхой салбартай бол түүнийхээр, салбаргүй (бүх
+  // салбарт ажилладаг) бол үйлчлүүлэгчийн сонгосон салбарын цагаар тооцно.
   const staff = await getStaffMember(staffId);
-  const hours = await getEffectiveLocation(staff?.locationId);
+  const hours = await getEffectiveLocation(staff?.locationId || locationId);
 
   // Гаригийг UTC-ээр уншина — календарийн огнооны гариг цагийн бүсээс
   // хамаарахгүй тул серверийн бүс юу ч байсан ижил хариу өгнө.
@@ -559,9 +688,10 @@ export async function getAvailableSlots(
   serviceId: string,
   staffId: string,
   date: string,
+  locationId?: string,
 ): Promise<string[]> {
   const service = await getService(serviceId);
-  return computeAvailableSlots(staffId, date, service?.durationMin ?? 0);
+  return computeAvailableSlots(staffId, date, service?.durationMin ?? 0, locationId);
 }
 
 /** Багцаар захиалахад — нийт хугацааг багцын үйлчилгээнүүдээс тооцно. */
@@ -569,10 +699,11 @@ export async function getPackageAvailableSlots(
   packageId: string,
   staffId: string,
   date: string,
+  locationId?: string,
 ): Promise<string[]> {
   const pkg = await getPackage(packageId);
   if (!pkg) return [];
-  return computeAvailableSlots(staffId, date, await getPackageDuration(pkg));
+  return computeAvailableSlots(staffId, date, await getPackageDuration(pkg), locationId);
 }
 
 /* ---------------- Reviews ---------------- */
@@ -633,6 +764,89 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
     about: next.about,
     map_coords: next.mapCoords,
     hero_image_url: next.heroImageUrl ?? null,
+    deposit_amount: next.depositAmount,
   });
   if (error) throw new Error(error.message);
+}
+
+/* ---------------- Payments (урьдчилгаа) ---------------- */
+
+/** Нэхэмжлэх хүчинтэй байх хугацаа — үүний дараа цаг өөр хүнд чөлөөлөгдөнө. */
+export const PAYMENT_TTL_MINUTES = 15;
+
+export async function createPayment(input: {
+  amount: number;
+  provider: string;
+  draft: BookingDraft;
+}): Promise<Payment> {
+  const id = `pay-${randomUUID().slice(0, 10)}`;
+  const createdAt = new Date();
+  const expiresAt = new Date(createdAt.getTime() + PAYMENT_TTL_MINUTES * 60_000);
+  const { error } = await db().from("payments").insert({
+    id,
+    status: "pending",
+    amount: input.amount,
+    provider: input.provider,
+    draft: input.draft,
+    created_at: createdAt.toISOString(),
+    expires_at: expiresAt.toISOString(),
+  });
+  if (error) throw new Error(error.message);
+  return {
+    id,
+    status: "pending",
+    amount: input.amount,
+    provider: input.provider,
+    draft: input.draft,
+    error: "",
+    createdAt: createdAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+  };
+}
+
+export async function getPayment(id: string): Promise<Payment | undefined> {
+  const { data } = await db().from("payments").select("*").eq("id", id).maybeSingle();
+  return data ? paymentFromRow(data) : undefined;
+}
+
+export async function updatePayment(
+  id: string,
+  patch: {
+    status?: PaymentStatus;
+    invoiceId?: string;
+    bookingId?: string;
+    error?: string;
+    paidAt?: string;
+  },
+): Promise<void> {
+  const { error } = await db()
+    .from("payments")
+    .update({
+      ...(patch.status !== undefined && { status: patch.status }),
+      ...(patch.invoiceId !== undefined && { invoice_id: patch.invoiceId }),
+      ...(patch.bookingId !== undefined && { booking_id: patch.bookingId }),
+      ...(patch.error !== undefined && { error: patch.error }),
+      ...(patch.paidAt !== undefined && { paid_at: patch.paidAt }),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function getPayments(status?: PaymentStatus): Promise<Payment[]> {
+  let q = db().from("payments").select("*").order("created_at", { ascending: false });
+  if (status) q = q.eq("status", status);
+  const { data, error } = await q.limit(200);
+  return must(data, error).map(paymentFromRow);
+}
+
+/**
+ * Хугацаа нь дууссан, төлөгдөөгүй нэхэмжлэхүүдийг хаана. Цаг эзэлдэггүй тул
+ * заавал биш ч жагсаалт цэвэрхэн байлгана — уншилт бүрийн өмнө дуудагдана.
+ */
+export async function expireStalePayments(): Promise<void> {
+  await db()
+    .from("payments")
+    .update({ status: "expired" })
+    .eq("status", "pending")
+    .lt("expires_at", new Date().toISOString());
 }

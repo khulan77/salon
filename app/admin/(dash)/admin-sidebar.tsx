@@ -9,6 +9,7 @@ const nav = [
   { href: "/admin", label: "Хянах самбар", icon: "📊" },
   { href: "/admin/bookings", label: "Захиалгууд", icon: "🗓️" },
   { href: "/admin/revenue", label: "Орлого", icon: "💰" },
+  { href: "/admin/payments", label: "Төлбөрүүд", icon: "💳" },
   { href: "/admin/services", label: "Үйлчилгээ", icon: "✨" },
   { href: "/admin/packages", label: "Багц", icon: "🎁" },
   { href: "/admin/staff", label: "Мастерууд", icon: "💇‍♀️" },
