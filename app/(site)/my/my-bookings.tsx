@@ -75,7 +75,7 @@ export default function MyBookings() {
   return (
     <div className="mt-8">
       {/* Хайх маягт */}
-      <form action={handleSearch} className="card p-6 sm:p-7">
+      <form action={handleSearch} className="card p-5 sm:p-7">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-foreground">
@@ -85,8 +85,11 @@ export default function MyBookings() {
               name="code"
               required
               maxLength={6}
+              autoCapitalize="characters"
+              autoComplete="off"
+              spellCheck={false}
               placeholder="K7F2QX"
-              className="w-full rounded-xl bg-surface-2/60 px-3.5 py-2.5 text-sm uppercase tracking-[0.2em] outline-none focus:ring-2 focus:ring-ring/60"
+              className="input uppercase tracking-[0.2em]"
             />
           </label>
           <label className="block">
@@ -96,9 +99,11 @@ export default function MyBookings() {
             <input
               name="phone"
               required
+              type="tel"
               inputMode="tel"
+              autoComplete="tel"
               placeholder="9911-2233"
-              className="w-full rounded-xl bg-surface-2/60 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+              className="input"
             />
           </label>
         </div>
@@ -121,7 +126,7 @@ export default function MyBookings() {
         {loading ? (
           <p className="text-sm text-muted">Ачаалж байна…</p>
         ) : bookings.length === 0 ? (
-          <div className="rounded-3xl bg-surface-2/50 p-10 text-center">
+          <div className="rounded-3xl bg-surface-2/50 p-8 text-center sm:p-10">
             <p className="text-muted">
               Энэ төхөөрөмж дээр хадгалагдсан захиалга алга байна.
             </p>
@@ -163,7 +168,7 @@ function BookingCard({
     booking.status === "no_show";
 
   return (
-    <div className={`card p-6 sm:p-7 ${past ? "opacity-75" : ""}`}>
+    <div className={`card p-5 sm:p-7 ${past ? "opacity-75" : ""}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-2xl">

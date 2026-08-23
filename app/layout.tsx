@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import { getSettings } from "@/app/lib/db";
 import "./globals.css";
@@ -54,6 +54,19 @@ export async function generateMetadata(): Promise<Metadata> {
     twitter: { card: "summary_large_image", title, description },
   };
 }
+
+/**
+ * Гар утасны хөтчийн хаягийн мөрийг сайтын дэвсгэр өнгөөр будна. Ингэснээр
+ * дэлгэц гүйлгэхэд толгой хэсэг тасархай харагдахгүй. `maximum-scale`-ыг
+ * ЗОРИУДААР тавихгүй — хэрэглэгч чимхэж томруулах эрхтэй байх ёстой.
+ */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf6f1" },
+    { media: "(prefers-color-scheme: dark)", color: "#faf6f1" },
+  ],
+  colorScheme: "light",
+};
 
 export default function RootLayout({
   children,

@@ -142,22 +142,6 @@ export default function PackageManager({
           );
         })}
       </div>
-
-      <style>{`
-        .pinput {
-          width: 100%;
-          border-radius: 0.75rem;
-          border: 1px solid var(--border);
-          background: var(--background);
-          padding: 0.625rem 0.875rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .pinput:focus {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(217,167,173,0.35);
-        }
-      `}</style>
     </div>
   );
 }
@@ -200,11 +184,11 @@ function PackageFields({
             required
             defaultValue={pkg?.name}
             placeholder="Сүйн бүсгүйн багц"
-            className="pinput"
+            className="field"
           />
         </L>
         <L label="Эможи">
-          <input name="emoji" defaultValue={pkg?.emoji ?? "🎁"} maxLength={4} className="pinput" />
+          <input name="emoji" defaultValue={pkg?.emoji ?? "🎁"} maxLength={4} className="field" />
         </L>
       </div>
 
@@ -214,7 +198,7 @@ function PackageFields({
           rows={2}
           defaultValue={pkg?.description}
           placeholder="Багцад юу багтахыг товч бичнэ үү."
-          className="pinput resize-none"
+          className="field resize-none"
         />
       </L>
 
@@ -253,7 +237,7 @@ function PackageFields({
             inputMode="numeric"
             defaultValue={pkg?.price ?? 0}
             onChange={(e) => setPrice(Number(e.target.value.replace(/[^0-9]/g, "")) || 0)}
-            className="pinput"
+            className="field"
           />
         </L>
         <div>
@@ -274,7 +258,7 @@ function PackageFields({
             type="number"
             name="sortOrder"
             defaultValue={pkg?.sortOrder ?? 0}
-            className="pinput"
+            className="field"
           />
         </L>
       </div>

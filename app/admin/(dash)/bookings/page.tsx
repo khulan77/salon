@@ -188,7 +188,7 @@ export default async function AdminBookingsPage({
           name="q"
           defaultValue={search}
           placeholder="Нэр, утас эсвэл код…"
-          className="min-w-0 flex-1 rounded-full border border-border bg-surface px-4 py-2 text-sm outline-none focus:border-primary"
+          className="w-full min-w-0 rounded-full border border-border bg-surface px-4 py-2 text-sm outline-none focus:border-primary sm:w-auto sm:flex-1"
         />
         {locations.length > 1 && (
           <select

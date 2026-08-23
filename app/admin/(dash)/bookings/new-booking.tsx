@@ -150,7 +150,7 @@ export default function NewBooking({
                 const m = staff.find((x) => x.id === staffId);
                 if (m?.locationId && m.locationId !== e.target.value) setStaffId("");
               }}
-              className="binput"
+              className="field"
             >
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -169,7 +169,7 @@ export default function NewBooking({
               setItem(e.target.value);
               setTime("");
             }}
-            className="binput"
+            className="field"
           >
             <option value="">— сонгоно уу —</option>
             {packages.length > 0 && (
@@ -200,7 +200,7 @@ export default function NewBooking({
               setStaffId(e.target.value);
               setTime("");
             }}
-            className="binput"
+            className="field"
           >
             <option value="">— сонгоно уу —</option>
             {availableStaff.map((m) => (
@@ -220,7 +220,7 @@ export default function NewBooking({
               setDate(e.target.value);
               setTime("");
             }}
-            className="binput"
+            className="field"
           />
         </F>
 
@@ -231,14 +231,14 @@ export default function NewBooking({
               name="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="binput"
+              className="field"
             />
           ) : (
             <select
               name="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="binput"
+              className="field"
               disabled={!ready || loadingSlots}
             >
               <option value="">
@@ -260,7 +260,7 @@ export default function NewBooking({
         </F>
 
         <F label="Үйлчлүүлэгчийн нэр">
-          <input name="customerName" required placeholder="Нэр" className="binput" />
+          <input name="customerName" required placeholder="Нэр" className="field" />
         </F>
         <F label="Утасны дугаар">
           <input
@@ -268,7 +268,7 @@ export default function NewBooking({
             required
             inputMode="tel"
             placeholder="9900-0000"
-            className="binput"
+            className="field"
           />
         </F>
 
@@ -277,7 +277,7 @@ export default function NewBooking({
             name="note"
             rows={2}
             placeholder="Утсаар ярихад хэлсэн хүсэлт, тодруулга"
-            className="binput resize-none"
+            className="field resize-none"
           />
         </F>
 
@@ -316,23 +316,6 @@ export default function NewBooking({
           </button>
         </div>
       </form>
-
-      <style>{`
-        .binput {
-          width: 100%;
-          border-radius: 0.75rem;
-          border: 1px solid var(--border);
-          background: var(--background);
-          padding: 0.625rem 0.875rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .binput:focus {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(217,167,173,0.35);
-        }
-        .binput:disabled { opacity: 0.6; }
-      `}</style>
     </div>
   );
 }

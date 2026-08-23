@@ -201,7 +201,7 @@ export default function BookingForm({
 
   if (state.status === "success") {
     return (
-      <div className="card mt-10 p-10 text-center">
+      <div className="card mt-8 p-6 text-center sm:mt-10 sm:p-10">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-3xl">
           ✓
         </div>
@@ -285,7 +285,15 @@ export default function BookingForm({
         ))}
       </ol>
 
-      <div className="card mt-8 p-6 sm:p-8">
+      {/* Утсан дээр алхмын нэр дугуйнуудын доор багтахгүй тул тусад нь. */}
+      <p className="mt-3 text-center text-sm font-medium text-foreground sm:hidden">
+        <span className="text-muted">
+          Алхам {step + 1}/{stepKeys.length} ·{" "}
+        </span>
+        {stepLabels[stepKey]}
+      </p>
+
+      <div className="card mt-6 px-5 pt-5 sm:mt-8 sm:p-8">
         {/* Step: branch */}
         {stepKey === "branch" && (
           <div>
@@ -303,7 +311,7 @@ export default function BookingForm({
                     const m = staff.find((x) => x.id === staffId);
                     if (m?.locationId && m.locationId !== l.id) setStaffId("");
                   }}
-                  className={`flex items-start gap-3 rounded-2xl p-4 text-left transition-colors ${
+                  className={`flex min-h-16 items-start gap-3 rounded-2xl p-4 text-left transition-colors ${
                     locationId === l.id
                       ? "bg-primary-soft ring-2 ring-primary"
                       : "bg-surface-2/60 hover:bg-surface-2"
@@ -348,7 +356,7 @@ export default function BookingForm({
                         key={p.id}
                         type="button"
                         onClick={() => choosePackage(p.id)}
-                        className={`flex items-start gap-3 rounded-2xl p-4 text-left transition-colors ${
+                        className={`flex min-h-16 items-start gap-3 rounded-2xl p-4 text-left transition-colors ${
                           packageId === p.id
                             ? "bg-primary-soft ring-2 ring-primary"
                             : "bg-surface-2/60 hover:bg-surface-2"
@@ -385,7 +393,7 @@ export default function BookingForm({
                   key={s.id}
                   type="button"
                   onClick={() => chooseService(s.id)}
-                  className={`flex items-center gap-3 rounded-2xl p-4 text-left transition-colors ${
+                  className={`flex min-h-16 items-center gap-3 rounded-2xl p-4 text-left transition-colors ${
                     serviceId === s.id
                       ? "bg-primary-soft ring-2 ring-primary"
                       : "bg-surface-2/60 hover:bg-surface-2"
@@ -429,7 +437,7 @@ export default function BookingForm({
                     key={m.id}
                     type="button"
                     onClick={() => setStaffId(m.id)}
-                    className={`flex items-center gap-3 rounded-2xl p-4 text-left transition-colors ${
+                    className={`flex min-h-16 items-center gap-3 rounded-2xl p-4 text-left transition-colors ${
                       staffId === m.id
                         ? "bg-primary-soft ring-2 ring-primary"
                         : "bg-surface-2/60 hover:bg-surface-2"
@@ -478,7 +486,7 @@ export default function BookingForm({
                 setDate(e.target.value);
                 setTime("");
               }}
-              className="mt-2 w-full rounded-xl bg-surface-2/60 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+              className="input mt-2"
             />
             <p className="mt-5 text-sm font-medium text-foreground">Боломжит цаг</p>
             {loadingSlots ? (
@@ -494,7 +502,7 @@ export default function BookingForm({
                     key={slot}
                     type="button"
                     onClick={() => setTime(slot)}
-                    className={`rounded-full px-2 py-2.5 text-sm transition-colors ${
+                    className={`flex min-h-11 items-center justify-center rounded-full px-2 text-sm transition-colors ${
                       time === slot
                         ? "bg-primary text-white"
                         : "bg-surface-2/70 text-foreground hover:bg-primary-soft hover:text-primary"
@@ -527,6 +535,7 @@ export default function BookingForm({
                 <input
                   name="customerName"
                   required
+                  autoComplete="name"
                   placeholder="Нэрээ оруулна уу"
                   className="input"
                 />
@@ -535,7 +544,9 @@ export default function BookingForm({
                 <input
                   name="customerPhone"
                   required
+                  type="tel"
                   inputMode="tel"
+                  autoComplete="tel"
                   placeholder="9900-0000"
                   className="input"
                 />
@@ -620,18 +631,24 @@ export default function BookingForm({
               </p>
             )}
 
-            <div className="mt-6 flex items-center justify-between gap-3">
+            {/*
+              Утсан дээр үйлдлийн мөр доод талд наалдана — урт жагсаалт гүйлгэж
+              байхад ч "баталгаажуулах" товч үргэлж гарт байна.
+            */}
+            <div className="action-bar">
               <button
                 type="button"
                 onClick={() => setStep((s) => s - 1)}
-                className="rounded-full bg-surface-2 px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-border/60"
+                aria-label="Өмнөх алхам"
+                className="shrink-0 rounded-full bg-surface-2 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-border/60 sm:px-6"
               >
-                ← Буцах
+                <span aria-hidden>←</span>
+                <span className="hidden sm:inline"> Буцах</span>
               </button>
               <button
                 type="submit"
                 disabled={pending || payPending}
-                className="rounded-full bg-primary px-8 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
+                className="min-w-0 flex-1 truncate rounded-full bg-primary px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60 sm:flex-none sm:px-8"
               >
                 {pending || payPending
                   ? "Илгээж байна…"
@@ -645,41 +662,28 @@ export default function BookingForm({
 
         {/* Nav (all but last step) */}
         {!isLast && (
-          <div className="mt-8 flex items-center justify-between gap-3">
+          <div className="action-bar">
             <button
               type="button"
               onClick={() => setStep((s) => Math.max(0, s - 1))}
               disabled={step === 0}
-              className="rounded-full bg-surface-2 px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-border/60 disabled:opacity-40"
+              aria-label="Өмнөх алхам"
+              className="shrink-0 rounded-full bg-surface-2 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-border/60 disabled:opacity-40 sm:px-6"
             >
-              ← Буцах
+              <span aria-hidden>←</span>
+              <span className="hidden sm:inline"> Буцах</span>
             </button>
             <button
               type="button"
               onClick={() => canNext && setStep((s) => s + 1)}
               disabled={!canNext}
-              className="rounded-full bg-primary px-8 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-40"
+              className="min-w-0 flex-1 truncate rounded-full bg-primary px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-40 sm:flex-none sm:px-8"
             >
               Үргэлжлүүлэх →
             </button>
           </div>
         )}
       </div>
-
-      <style>{`
-        .input {
-          width: 100%;
-          border-radius: 0.75rem;
-          border: none;
-          background: color-mix(in srgb, var(--surface-2) 60%, transparent);
-          padding: 0.75rem 1rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .input:focus {
-          box-shadow: 0 0 0 2px var(--ring);
-        }
-      `}</style>
     </div>
   );
 }

@@ -43,6 +43,19 @@
 
 html {
   scroll-behavior: smooth;
+  /* Утсан дээр хажуу тийш "нэмэлт" гүйлт үүсэхээс сэргийлнэ. `clip` нь
+     `hidden`-ээс ялгаатай нь sticky толгойг эвдэхгүй. */
+  overflow-x: clip;
+  /* Дэлгэц эргүүлэхэд iOS үсгийг өөрөө томруулахыг хориглоно. */
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 body {
@@ -50,6 +63,21 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+/*
+  Гар утасны мэдрэгчид зориулсан ерөнхий тохиргоо: давхар товших үед дэлгэц
+  томрохгүй, дарахад саарал гэрэлтэлт гарахгүй.
+*/
+button, a, [role="button"], label, summary, input, select, textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Урт үг (жишээ нь салоны нэр) хайрцгаа сунгаж, мөр давахаас сэргийлнэ. */
+h1, h2, h3, h4 {
+  overflow-wrap: break-word;
 }
 
 h1, h2, h3, h4, .font-display {
@@ -110,6 +138,89 @@ h1, h2, h3, h4, .font-display {
     display: none;
   }
 
+  /*
+    Маягтын талбарууд. Өмнө нь хуудас бүр өөрийн дотоод <style>-д ижил
+    загварыг давтаж бичдэг байсныг нэг дор нэгтгэв.
+      .field — админ талын хүрээтэй талбар
+      .input — сайтын талын хүрээгүй зөөлөн талбар
+  */
+  .field,
+  .input {
+    width: 100%;
+    font-size: 1rem; /* iOS дээр 16px-ээс жижиг бол дарахад дэлгэц томордог */
+    line-height: 1.4;
+    outline: none;
+    /* Хуруугаар дарахад тохиромжтой өндөр (Apple/Google-ийн зөвлөмж 44px) */
+    min-height: 2.75rem;
+  }
+
+  .field {
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    background: var(--background);
+    padding: 0.625rem 0.875rem;
+  }
+  .field:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(217, 167, 173, 0.35);
+  }
+  .field:disabled {
+    opacity: 0.6;
+  }
+
+  .input {
+    border-radius: 0.75rem;
+    border: none;
+    background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+    padding: 0.75rem 1rem;
+  }
+  .input:focus {
+    box-shadow: 0 0 0 2px var(--ring);
+  }
+
+  /* Дэлгэц том дээр талбарууд арай нягт харагдана. */
+  @media (min-width: 640px) {
+    .field,
+    .input {
+      font-size: 0.875rem;
+      min-height: 0;
+    }
+  }
+
+  /*
+    Гар утасны доод талын үйлдлийн мөр. Урт жагсаалт гүйлгэж байхад ч
+    "Үргэлжлүүлэх" товч дэлгэцийн доод талд наалдаж, гарт байнга байна.
+    `.card`-ын доод буланг дагаж мурийж, iPhone-ы "home" зураасны зайг тооцно.
+  */
+  .action-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 1.5rem -1.25rem 0;
+    padding: 1rem 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+    border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    border-radius: 0 0 1.5rem 1.5rem;
+    background: color-mix(in srgb, var(--surface) 95%, transparent);
+    backdrop-filter: blur(8px);
+  }
+
+  /* Дэлгэц том дээр наалдах шаардлагагүй — энгийн мөр болно. */
+  @media (min-width: 640px) {
+    .action-bar {
+      position: static;
+      margin: 2rem 0 0;
+      padding: 0;
+      border-top: 0;
+      border-radius: 0;
+      background: transparent;
+      backdrop-filter: none;
+    }
+  }
+
   /* Section eyebrow */
   .eyebrow {
     font-size: 0.75rem;
@@ -130,3 +241,18 @@ h1, h2, h3, h4, .font-display {
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-fade-up { animation: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+
+/*
+  Гар утсанд бүх талбар 16px. Үүнээс жижиг байвал iOS Safari талбар дээр
+  дарахад дэлгэцийг автоматаар томруулж, хэрэглэгчийг гар аргаар буцааж
+  жижигрүүлэхэд хүргэдэг — цаг захиалгын урсгалыг хамгийн их эвддэг алдаа.
+  Энэ дүрэм @layer-ээс гадуур тул Tailwind-ийн `text-sm`-ийг давж ажиллана.
+*/
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

@@ -63,16 +63,19 @@ export default function AdminSidebar({
   return (
     <>
       {/* Mobile top bar */}
-      <div className="flex items-center justify-between border-b border-border bg-surface px-5 py-3 lg:hidden">
-        <Link href="/admin" className="flex items-baseline gap-1.5">
-          <span className="font-display text-xl font-semibold text-foreground">{salonName}</span>
-          <span className="text-xs text-muted">Admin</span>
+      <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-2.5 sm:px-5 lg:hidden">
+        <Link href="/admin" className="flex min-w-0 items-baseline gap-1.5">
+          <span className="truncate font-display text-xl font-semibold text-foreground">
+            {salonName}
+          </span>
+          <span className="shrink-0 text-xs text-muted">Admin</span>
         </Link>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="text-xl"
+          className="-mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-xl"
           aria-label="Цэс"
+          aria-expanded={open}
         >
           {open ? "✕" : "☰"}
         </button>
@@ -87,8 +90,8 @@ export default function AdminSidebar({
 
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface p-5 lg:flex">
-        <Link href="/admin" className="flex items-baseline gap-1.5 px-2">
-          <span className="font-display text-2xl font-semibold text-foreground">{salonName}</span>
+        <Link href="/admin" className="flex min-w-0 items-baseline gap-1.5 px-2">
+          <span className="truncate font-display text-2xl font-semibold text-foreground">{salonName}</span>
           <span className="text-primary">✦</span>
         </Link>
         <p className="mb-6 px-2 text-xs text-muted">Удирдлагын самбар</p>

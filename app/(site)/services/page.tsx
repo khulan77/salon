@@ -20,13 +20,13 @@ export default async function ServicesPage() {
 
   return (
     <div className="bg-warm">
-      <div className="mx-auto w-full max-w-6xl px-5 pt-14 sm:pt-20">
+      <div className="mx-auto w-full max-w-6xl px-5 pt-10 sm:pt-20">
         <header className="max-w-2xl">
           <p className="eyebrow">Манай үйлчилгээ</p>
-          <h1 className="mt-2 font-display text-4xl font-semibold leading-[1.1] text-foreground sm:text-5xl">
+          <h1 className="mt-2 font-display text-3xl font-semibold leading-[1.12] text-foreground sm:text-5xl">
             Гоо сайхны иж бүрэн үйлчилгээ
           </h1>
-          <p className="mt-5 leading-8 text-muted sm:text-lg">
+          <p className="mt-4 leading-7 text-muted sm:mt-5 sm:text-lg sm:leading-8">
             Үс, хумс, арьс арчилгаанаас нүүр будалт хүртэл — өөрт хэрэгтэйгээ
             сонгоод цагаа захиалаарай.
           </p>
@@ -60,11 +60,11 @@ export default async function ServicesPage() {
 
       <div className="mx-auto w-full max-w-6xl px-5 pb-20">
         {packages.length > 0 && (
-          <section id="packages" className="scroll-mt-32 pt-14">
+          <section id="packages" className="scroll-mt-32 pt-10 sm:pt-14">
             <div className="flex items-end justify-between gap-4">
               <div>
                 <p className="eyebrow">Хосолсон санал</p>
-                <h2 className="mt-2 font-display text-3xl font-semibold text-foreground">
+                <h2 className="mt-2 font-display text-2xl font-semibold text-foreground sm:text-3xl">
                   Хямдралтай багц
                 </h2>
               </div>
@@ -83,9 +83,9 @@ export default async function ServicesPage() {
         )}
 
         {categories.map((cat, i) => (
-          <section key={cat} id={catId(i)} className="scroll-mt-32 pt-16">
+          <section key={cat} id={catId(i)} className="scroll-mt-32 pt-12 sm:pt-16">
             <div className="flex items-baseline gap-4">
-              <h2 className="font-display text-3xl font-semibold text-foreground">{cat}</h2>
+              <h2 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">{cat}</h2>
               <span className="h-px flex-1 bg-border" />
               <span className="text-xs text-muted">
                 {services.filter((s) => s.category === cat).length} үйлчилгээ
@@ -106,7 +106,7 @@ export default async function ServicesPage() {
         )}
 
         {/* Хаалтын уриалга */}
-        <section className="mt-20 overflow-hidden rounded-[2rem] bg-gradient-to-br from-primary to-primary-hover px-6 py-14 text-center text-white sm:px-16">
+        <section className="mt-16 overflow-hidden rounded-[2rem] bg-gradient-to-br from-primary to-primary-hover px-6 py-12 text-center text-white sm:mt-20 sm:px-16 sm:py-14">
           <h2 className="font-display text-2xl font-semibold sm:text-3xl">
             Аль үйлчилгээг сонгохоо мэдэхгүй байна уу?
           </h2>

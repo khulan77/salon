@@ -71,14 +71,14 @@ export default async function AdminDashboard() {
             Одоогоор захиалга алга байна.
           </p>
         ) : (
-          <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-surface">
-            <table className="w-full text-sm">
+          <div className="no-scrollbar mt-4 overflow-x-auto rounded-2xl border border-border bg-surface">
+            <table className="w-full min-w-[26rem] text-sm">
               <thead className="bg-surface-2 text-left text-muted">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Үйлчлүүлэгч</th>
+                  <th className="whitespace-nowrap px-4 py-3 font-medium sm:px-5">Үйлчлүүлэгч</th>
                   <th className="hidden px-5 py-3 font-medium sm:table-cell">Үйлчилгээ</th>
-                  <th className="px-5 py-3 font-medium">Огноо</th>
-                  <th className="px-5 py-3 font-medium">Төлөв</th>
+                  <th className="whitespace-nowrap px-4 py-3 font-medium sm:px-5">Огноо</th>
+                  <th className="whitespace-nowrap px-4 py-3 font-medium sm:px-5">Төлөв</th>
                 </tr>
               </thead>
               <tbody>
@@ -89,14 +89,14 @@ export default async function AdminDashboard() {
                   const svc = services.find((s) => s.id === b.serviceId);
                   return (
                     <tr key={b.id} className="border-t border-border">
-                      <td className="px-5 py-3 font-medium text-foreground">{b.customerName}</td>
+                      <td className="px-4 py-3 font-medium text-foreground sm:px-5">{b.customerName}</td>
                       <td className="hidden px-5 py-3 text-muted sm:table-cell">
                         {pkg ? `${pkg.name} (багц)` : (svc?.name ?? "—")}
                       </td>
-                      <td className="px-5 py-3 text-muted">
+                      <td className="whitespace-nowrap px-4 py-3 text-muted sm:px-5">
                         {formatDate(b.date)} · {b.time}
                       </td>
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-3 sm:px-5">
                         <StatusBadge status={b.status} />
                       </td>
                     </tr>

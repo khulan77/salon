@@ -42,7 +42,7 @@ export default async function AdminSettingsPage() {
                   defaultValue={settings.salonName}
                   maxLength={60}
                   placeholder="Lumière"
-                  className="sinput"
+                  className="field"
                 />
               </label>
               <label className="block">
@@ -54,7 +54,7 @@ export default async function AdminSettingsPage() {
                   defaultValue={settings.tagline}
                   maxLength={80}
                   placeholder="Гоо сайхны салон"
-                  className="sinput"
+                  className="field"
                 />
               </label>
               <label className="block sm:col-span-2">
@@ -66,7 +66,7 @@ export default async function AdminSettingsPage() {
                   defaultValue={settings.email}
                   maxLength={80}
                   placeholder="hello@salon.mn"
-                  className="sinput"
+                  className="field"
                 />
               </label>
             </div>
@@ -81,7 +81,7 @@ export default async function AdminSettingsPage() {
                 maxLength={1000}
                 rows={4}
                 placeholder="Салоны танилцуулга — нүүр хуудсанд гарна."
-                className="sinput resize-none"
+                className="field resize-none"
               />
             </label>
           </div>
@@ -106,7 +106,7 @@ export default async function AdminSettingsPage() {
                 inputMode="numeric"
                 defaultValue={settings.depositAmount}
                 placeholder="10000"
-                className="sinput"
+                className="field"
               />
             </label>
           </div>
@@ -147,22 +147,6 @@ export default async function AdminSettingsPage() {
           Хадгалах
         </button>
       </form>
-
-      <style>{`
-        .sinput {
-          width: 100%;
-          border-radius: 0.75rem;
-          border: 1px solid var(--border);
-          background: var(--background);
-          padding: 0.625rem 0.875rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .sinput:focus {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(217,167,173,0.35);
-        }
-      `}</style>
     </div>
   );
 }

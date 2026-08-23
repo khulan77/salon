@@ -20,7 +20,7 @@ export default async function AdminDashLayout({
   return (
     <div className="flex min-h-screen flex-col bg-background lg:flex-row">
       <AdminSidebar pendingCount={pendingCount} salonName={settings.salonName} />
-      <main className="flex-1 px-5 py-8 sm:px-8">
+      <main className="flex-1 px-4 py-6 sm:px-8 sm:py-8">
         <div className="mx-auto w-full max-w-5xl">{children}</div>
       </main>
     </div>

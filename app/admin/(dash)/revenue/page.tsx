@@ -111,21 +111,25 @@ export default async function AdminRevenuePage() {
       </div>
 
       {months.length > 0 && (
-        <section className="mt-8 rounded-2xl border border-border bg-surface p-6">
+        <section className="mt-8 rounded-2xl border border-border bg-surface p-5 sm:p-6">
           <h2 className="font-display text-lg font-semibold text-foreground">Сарын орлого</h2>
-          <div className="mt-6 flex items-end gap-4">
+          {/* Утсанд 6 багана багтахгүй тул хажуу тийш гүйлгэнэ. */}
+          <div className="no-scrollbar -mx-1 mt-6 flex items-end gap-3 overflow-x-auto px-1 sm:gap-4">
             {months.map(([key, value]) => {
               const [, m] = key.split("-");
               return (
-                <div key={key} className="flex flex-1 flex-col items-center gap-2">
-                  <span className="text-xs font-medium text-foreground">
+                <div
+                  key={key}
+                  className="flex min-w-[4.75rem] flex-1 flex-col items-center gap-2"
+                >
+                  <span className="whitespace-nowrap text-[0.7rem] font-medium text-foreground sm:text-xs">
                     {formatPrice(value)}
                   </span>
                   <div
                     className="w-full rounded-t-lg bg-primary/80"
                     style={{ height: `${Math.max(6, (value / maxMonth) * 140)}px` }}
                   />
-                  <span className="text-xs text-muted">{MONTHS[Number(m) - 1]}</span>
+                  <span className="whitespace-nowrap text-xs text-muted">{MONTHS[Number(m) - 1]}</span>
                 </div>
               );
             })}

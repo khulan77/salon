@@ -22,13 +22,13 @@ export default async function StaffPage() {
 
   return (
     <div className="bg-warm">
-      <div className="mx-auto w-full max-w-6xl px-5 py-16">
+      <div className="mx-auto w-full max-w-6xl px-5 py-12 sm:py-16">
         <header className="max-w-2xl">
           <p className="eyebrow">Манай баг</p>
-          <h1 className="mt-2 font-display text-4xl font-semibold text-foreground">
+          <h1 className="mt-2 font-display text-3xl font-semibold text-foreground sm:text-4xl">
             Туршлагатай мастерууд
           </h1>
-          <p className="mt-4 text-lg leading-8 text-muted">
+          <p className="mt-4 leading-7 text-muted sm:text-lg sm:leading-8">
             Мэргэжлийн, найрсаг баг таныг угтан авч, хамгийн сайн үйлчилгээг үзүүлнэ.
           </p>
           {locations.length > 1 && location && (
@@ -38,7 +38,13 @@ export default async function StaffPage() {
           )}
         </header>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={`mt-10 grid gap-x-5 gap-y-10 sm:mt-12 sm:gap-x-6 ${
+            visible.length === 1
+              ? "mx-auto max-w-[17rem]"
+              : "grid-cols-2 lg:grid-cols-3"
+          }`}
+        >
           {visible.map((m) => (
             <StaffCard key={m.id} staff={m} services={services} />
           ))}

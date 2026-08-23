@@ -51,7 +51,7 @@ export default function PaymentStep({
 
   if (progress.state === "paid") {
     return (
-      <div className="card mt-10 p-10 text-center">
+      <div className="card mt-8 p-6 text-center sm:mt-10 sm:p-10">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-3xl">
           ✓
         </div>
@@ -90,7 +90,7 @@ export default function PaymentStep({
 
   if (progress.state === "failed") {
     return (
-      <div className="card mt-10 p-10 text-center">
+      <div className="card mt-8 p-6 text-center sm:mt-10 sm:p-10">
         <div className="text-4xl">🌸</div>
         <h2 className="mt-4 font-display text-xl font-semibold text-foreground">
           Захиалга бүртгэгдсэнгүй
@@ -113,7 +113,7 @@ export default function PaymentStep({
   const seconds = String(secondsLeft % 60).padStart(2, "0");
 
   return (
-    <div className="card mt-10 p-8 text-center sm:p-10">
+    <div className="card mt-8 p-6 text-center sm:mt-10 sm:p-10">
       <p className="eyebrow">Урьдчилгаа төлбөр</p>
       <h2 className="mt-2 font-display text-2xl font-semibold text-foreground">
         {formatPrice(invoice.amount)} төлнө үү
@@ -128,7 +128,7 @@ export default function PaymentStep({
         <img
           src={invoice.qrImage}
           alt="Төлбөрийн QR"
-          className="mx-auto mt-6 h-56 w-56 rounded-2xl bg-white p-3"
+          className="mx-auto mt-6 h-48 w-48 rounded-2xl bg-white p-3 sm:h-56 sm:w-56"
         />
       )}
 

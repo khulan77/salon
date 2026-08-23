@@ -10,10 +10,13 @@ export default function LocationSelector({
   locations,
   selectedId,
   className = "",
+  compact = false,
 }: {
   locations: Location[];
   selectedId?: string;
   className?: string;
+  /** Утасны толгойд зай багатай — зөвхөн 📍 тэмдгийг харуулна. */
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -50,15 +53,22 @@ export default function LocationSelector({
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={pending}
-        className="flex max-w-[11rem] items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm text-foreground/90 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+        aria-label={compact ? `Салбар: ${labelOf(current)}` : undefined}
+        className={`flex items-center gap-1.5 rounded-full border border-border bg-surface text-sm text-foreground/90 transition-colors hover:border-primary hover:text-primary disabled:opacity-60 ${
+          compact ? "h-10 w-10 justify-center" : "max-w-[11rem] px-3.5 py-1.5"
+        }`}
       >
         <span>📍</span>
-        <span className="truncate">{labelOf(current)}</span>
-        <span className="text-xs text-muted">▾</span>
+        {!compact && (
+          <>
+            <span className="truncate">{labelOf(current)}</span>
+            <span className="text-xs text-muted">▾</span>
+          </>
+        )}
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
+        <div className="absolute right-0 z-50 mt-2 w-[min(15rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
           <p className="px-4 pt-3 text-xs font-medium text-muted">Салбар сонгох</p>
           <ul className="py-1.5">
             {locations.map((l) => (

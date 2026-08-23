@@ -181,14 +181,14 @@ function StaffFields({
         <ImageField currentUrl={member?.imageUrl} fallbackEmoji={member?.emoji ?? "💇‍♀️"} />
       </div>
       <L label="Нэр">
-        <input name="name" required defaultValue={member?.name} className="ainput" />
+        <input name="name" required defaultValue={member?.name} className="field" />
       </L>
       <L label="Мэргэжил / албан тушаал">
         <input
           name="title"
           defaultValue={member?.title}
           placeholder="Ахлах стилист"
-          className="ainput"
+          className="field"
         />
       </L>
       <L label="Салбар">
@@ -201,7 +201,7 @@ function StaffFields({
             хуудаснаас нэмнэ үү.
           </p>
         ) : (
-          <select name="locationId" defaultValue={member?.locationId ?? ""} className="ainput">
+          <select name="locationId" defaultValue={member?.locationId ?? ""} className="field">
             <option value="">— Бүх салбар —</option>
             {locations.map((l) => (
               <option key={l.id} value={l.id}>
@@ -216,7 +216,7 @@ function StaffFields({
           name="bio"
           rows={2}
           defaultValue={member?.bio}
-          className="ainput resize-none"
+          className="field resize-none"
         />
       </L>
       <L label="Эможи (зураг байхгүй үед)">
@@ -224,7 +224,7 @@ function StaffFields({
           name="emoji"
           defaultValue={member?.emoji ?? "💇‍♀️"}
           maxLength={4}
-          className="ainput"
+          className="field"
         />
       </L>
       <label className="flex items-center gap-2 self-end pb-3 text-sm text-foreground">
@@ -250,7 +250,7 @@ function StaffFields({
               name="email"
               defaultValue={member?.email}
               placeholder="ajilChin@example.com"
-              className="ainput"
+              className="field"
             />
           </label>
           <label className="block">
@@ -262,7 +262,7 @@ function StaffFields({
               name="password"
               autoComplete="new-password"
               placeholder="Хоосон = өөрчлөхгүй"
-              className="ainput"
+              className="field"
             />
           </label>
         </div>
@@ -315,22 +315,6 @@ function StaffFields({
           </button>
         )}
       </div>
-
-      <style>{`
-        .ainput {
-          width: 100%;
-          border-radius: 0.75rem;
-          border: 1px solid var(--border);
-          background: var(--background);
-          padding: 0.625rem 0.875rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .ainput:focus {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(217,167,173,0.35);
-        }
-      `}</style>
     </form>
   );
 }

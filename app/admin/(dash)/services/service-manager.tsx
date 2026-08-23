@@ -189,14 +189,14 @@ function ServiceFields({
         />
       </div>
       <L label="Нэр">
-        <input name="name" required defaultValue={service?.name} className="ainput" />
+        <input name="name" required defaultValue={service?.name} className="field" />
       </L>
       <L label="Ангилал">
         <input
           name="category"
           defaultValue={service?.category}
           placeholder="Үс, Хумс, Арьс…"
-          className="ainput"
+          className="field"
         />
       </L>
       <L label="Тайлбар" full>
@@ -204,7 +204,7 @@ function ServiceFields({
           name="description"
           rows={2}
           defaultValue={service?.description}
-          className="ainput resize-none"
+          className="field resize-none"
         />
       </L>
       <L label="Үнэ (₮)">
@@ -215,7 +215,7 @@ function ServiceFields({
           required
           value={priceText}
           onChange={(e) => setPriceText(e.target.value)}
-          className="ainput"
+          className="field"
         />
       </L>
       <L label="Үргэлжлэх (мин)">
@@ -225,7 +225,7 @@ function ServiceFields({
           min={15}
           step={15}
           defaultValue={service?.durationMin ?? 60}
-          className="ainput"
+          className="field"
         />
       </L>
       <L label="Эможи (зураг байхгүй үед)">
@@ -233,7 +233,7 @@ function ServiceFields({
           name="emoji"
           defaultValue={service?.emoji ?? "✨"}
           maxLength={4}
-          className="ainput"
+          className="field"
         />
       </L>
       <label className="flex items-center gap-2 self-end pb-3 text-sm text-foreground">
@@ -271,22 +271,6 @@ function ServiceFields({
           </button>
         )}
       </div>
-
-      <style>{`
-        .ainput {
-          width: 100%;
-          border-radius: 0.75rem;
-          border: 1px solid var(--border);
-          background: var(--background);
-          padding: 0.625rem 0.875rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .ainput:focus {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(217,167,173,0.35);
-        }
-      `}</style>
     </form>
   );
 }
@@ -362,7 +346,7 @@ function SaleBox({
                   max={90}
                   value={percent}
                   onChange={(e) => setPercent(Number(e.target.value) || 0)}
-                  className="ainput w-20"
+                  className="field w-20"
                 />
                 %
               </span>

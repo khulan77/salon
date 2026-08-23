@@ -18,12 +18,14 @@ export default async function PortalLayout({
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex h-16 w-full max-w-4xl items-center justify-between px-5">
-          <Link href="/portal" className="flex items-baseline gap-1.5">
-            <span className="font-display text-2xl font-semibold text-foreground">{salonName}</span>
-            <span className="text-xs text-muted">Ажилтан</span>
+        <div className="mx-auto flex h-16 w-full max-w-4xl items-center justify-between gap-3 px-4 sm:px-5">
+          <Link href="/portal" className="flex min-w-0 items-baseline gap-1.5">
+            <span className="truncate font-display text-xl font-semibold text-foreground sm:text-2xl">
+              {salonName}
+            </span>
+            <span className="shrink-0 text-xs text-muted">Ажилтан</span>
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-4">
             <span className="hidden text-sm text-muted sm:block">
               👋 {session.staffName}
             </span>
@@ -38,7 +40,7 @@ export default async function PortalLayout({
           </div>
         </div>
       </header>
-      <main className="flex-1 px-5 py-8">
+      <main className="flex-1 px-4 py-8 sm:px-5">
         <div className="mx-auto w-full max-w-4xl">{children}</div>
       </main>
     </div>

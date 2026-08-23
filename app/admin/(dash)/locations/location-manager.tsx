@@ -145,22 +145,6 @@ export default function LocationManager({ locations }: { locations: Location[] }
           ),
         )}
       </div>
-
-      <style>{`
-        .linput {
-          width: 100%;
-          border-radius: 0.75rem;
-          border: 1px solid var(--border);
-          background: var(--background);
-          padding: 0.625rem 0.875rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .linput:focus {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(217,167,173,0.35);
-        }
-      `}</style>
     </div>
   );
 }
@@ -187,7 +171,7 @@ function LocationFields({
             defaultValue={location?.name}
             maxLength={60}
             placeholder="Төв салбар"
-            className="linput"
+            className="field"
           />
         </L>
         <L label="Утасны дугаар">
@@ -196,7 +180,7 @@ function LocationFields({
             defaultValue={location?.phone}
             maxLength={40}
             placeholder="+976 8000-0000"
-            className="linput"
+            className="field"
           />
         </L>
       </div>
@@ -207,7 +191,7 @@ function LocationFields({
           defaultValue={location?.address}
           maxLength={200}
           placeholder="Улаанбаатар, Сүхбаатар дүүрэг, 1-р хороо"
-          className="linput"
+          className="field"
         />
         <span className="mt-1.5 block text-xs text-muted">
           {!location?.address
@@ -224,7 +208,7 @@ function LocationFields({
             type="time"
             name="openTime"
             defaultValue={location?.openTime ?? "10:00"}
-            className="linput"
+            className="field"
           />
         </L>
         <L label="Хаах">
@@ -232,14 +216,14 @@ function LocationFields({
             type="time"
             name="closeTime"
             defaultValue={location?.closeTime ?? "20:00"}
-            className="linput"
+            className="field"
           />
         </L>
         <L label="Цагийн алхам">
           <select
             name="slotMinutes"
             defaultValue={location?.slotMinutes ?? 30}
-            className="linput"
+            className="field"
           >
             {SLOT_OPTIONS.map((m) => (
               <option key={m} value={m}>
@@ -277,7 +261,7 @@ function LocationFields({
             type="number"
             name="sortOrder"
             defaultValue={location?.sortOrder ?? 0}
-            className="linput w-24"
+            className="field w-24"
           />
         </L>
         <label className="flex items-center gap-2 self-end pb-2.5 text-sm text-foreground">

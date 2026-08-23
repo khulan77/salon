@@ -30,10 +30,10 @@ export default async function BookPage({
 
   return (
     <div className="bg-warm min-h-[70vh]">
-      <div className="mx-auto w-full max-w-3xl px-5 py-16">
+      <div className="mx-auto w-full max-w-3xl px-5 py-10 sm:py-16">
         <header className="text-center">
           <p className="eyebrow">Онлайн захиалга</p>
-          <h1 className="mt-2 font-display text-4xl font-semibold text-foreground">
+          <h1 className="mt-2 font-display text-3xl font-semibold text-foreground sm:text-4xl">
             Цаг захиалах
           </h1>
           <p className="mt-3 text-muted">

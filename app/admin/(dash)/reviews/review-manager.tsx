@@ -145,12 +145,12 @@ function ReviewFields({
           name="customerName"
           required
           defaultValue={review?.customerName}
-          className="rinput"
+          className="field"
         />
       </label>
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium text-foreground">Үнэлгээ</span>
-        <select name="rating" defaultValue={review?.rating ?? 5} className="rinput">
+        <select name="rating" defaultValue={review?.rating ?? 5} className="field">
           {[5, 4, 3, 2, 1].map((n) => (
             <option key={n} value={n}>
               {"★".repeat(n)} ({n})
@@ -165,7 +165,7 @@ function ReviewFields({
           rows={3}
           required
           defaultValue={review?.text}
-          className="rinput resize-none"
+          className="field resize-none"
         />
       </label>
       <label className="flex items-center gap-2 text-sm text-foreground">
@@ -195,22 +195,6 @@ function ReviewFields({
           </button>
         )}
       </div>
-
-      <style>{`
-        .rinput {
-          width: 100%;
-          border-radius: 0.75rem;
-          border: 1px solid var(--border);
-          background: var(--background);
-          padding: 0.625rem 0.875rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .rinput:focus {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(217,167,173,0.35);
-        }
-      `}</style>
     </form>
   );
 }
