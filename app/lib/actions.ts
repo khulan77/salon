@@ -46,6 +46,7 @@ import { LOCATION_COOKIE } from "./location";
 import { deleteImage, saveImage } from "./upload";
 import { geocodeAddress } from "./geocode";
 import { cancelledBookingEmail, newBookingEmail, sendEmail } from "./email";
+import { bookingActionUrl, readBookingAction } from "./booking-token";
 import {
   callbackUrl,
   isMockPayment,
@@ -353,6 +354,9 @@ export async function bookAction(
       customerName: draft.customerName,
       customerPhone: draft.customerPhone,
       note: draft.note,
+      // Имэйл дэх товчоор шууд шийднэ — админ сайт руу орох шаардлагагүй.
+      confirmUrl: bookingActionUrl(booking.id, "confirm"),
+      cancelUrl: bookingActionUrl(booking.id, "cancel"),
     }),
   });
 
@@ -769,6 +773,30 @@ export async function setBookingStatusAction(formData: FormData): Promise<void> 
   revalidatePath("/admin/bookings");
 }
 
+/**
+ * Имэйлийн товчоор захиалгыг баталгаажуулах/цуцлах.
+ *
+ * Нэвтрэх шаардлагагүй — эрхийг гарын үсэгтэй холбоос өөрөө нотолно
+ * (`booking-token.ts`). Тиймээс энд `requireAdmin()` дуудахгүй, харин токеныг
+ * ДАХИН шалгана: хуудас нээгдсэнээс хойш хугацаа нь дуусаж болно.
+ */
+export async function emailBookingActionAction(formData: FormData): Promise<void> {
+  const token = String(formData.get("token") ?? "");
+  const parsed = readBookingAction(token);
+  if (!parsed) return;
+
+  const booking = await getBooking(parsed.id);
+  if (!booking) return;
+
+  await updateBookingStatus(
+    parsed.id,
+    parsed.action === "confirm" ? "confirmed" : "cancelled",
+  );
+  revalidatePath("/admin/bookings");
+  revalidatePath("/portal");
+  revalidatePath(`/confirm/${token}`);
+}
+
 export async function deleteBookingAction(formData: FormData): Promise<void> {
   await requireAdmin();
   await deleteBooking(String(formData.get("id") ?? ""));
@@ -858,6 +886,8 @@ export async function adminCreateBookingAction(
         customerName: draft.customerName,
         customerPhone: draft.customerPhone,
         note: draft.note,
+        confirmUrl: bookingActionUrl(booking.id, "confirm"),
+        cancelUrl: bookingActionUrl(booking.id, "cancel"),
       }),
     });
   }

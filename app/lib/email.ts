@@ -53,6 +53,8 @@ function emailShell(opts: {
   lead: string;
   rows: string[];
   footer: string;
+  /** Хүснэгтийн доор гарах том товчнуудын HTML. */
+  actions?: string;
 }): string {
   return `
   <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#faf6f1;padding:24px;border-radius:16px">
@@ -61,8 +63,24 @@ function emailShell(opts: {
     <table style="width:100%;background:#fff;border-radius:12px;border-collapse:separate;border-spacing:0;overflow:hidden">
       ${opts.rows.join("")}
     </table>
+    ${opts.actions ?? ""}
     <p style="color:#8a7d72;font-size:12px;margin:16px 0 0">${opts.footer}</p>
   </div>`;
+}
+
+/**
+ * Имэйлийн товч. Гар утасны шуудангийн апп дээр хуруугаар дарахад тохиромжтой
+ * өндөртэй; `<a>`-г товч мэт харуулна (имэйлд `<button>` ажилладаггүй).
+ */
+function emailButton(href: string, label: string, primary: boolean): string {
+  const bg = primary ? "#b76e79" : "#ffffff";
+  const fg = primary ? "#ffffff" : "#8a7d72";
+  const border = primary ? "#b76e79" : "#e8ddd2";
+  return (
+    `<a href="${href}" style="display:inline-block;padding:13px 26px;margin:0 6px 8px 0;` +
+    `background:${bg};color:${fg};border:1px solid ${border};border-radius:999px;` +
+    `font-size:14px;font-weight:600;text-decoration:none">${label}</a>`
+  );
 }
 
 /** HTML for the "new booking" notification sent to admin + assigned staff. */
@@ -75,10 +93,22 @@ export function newBookingEmail(b: {
   customerName: string;
   customerPhone: string;
   note?: string;
+  /** Нэг товшилтоор баталгаажуулах/цуцлах холбоос (тохируулаагүй бол хоосон). */
+  confirmUrl?: string | null;
+  cancelUrl?: string | null;
 }): string {
+  const actions =
+    b.confirmUrl && b.cancelUrl
+      ? `<div style="margin:18px 0 0">` +
+        emailButton(b.confirmUrl, "✓ Баталгаажуулах", true) +
+        emailButton(b.cancelUrl, "✕ Цуцлах", false) +
+        `</div>`
+      : "";
+
   return emailShell({
     salonName: b.salonName,
     lead: "Шинэ цаг захиалга ирлээ 🎉",
+    actions,
     rows: [
       row("Үйлчилгээ", b.service),
       row("Мастер", b.staff),
@@ -88,7 +118,9 @@ export function newBookingEmail(b: {
       row("Утас", b.customerPhone),
       b.note ? row("Тэмдэглэл", b.note) : "",
     ],
-    footer: "Энэ бол автомат мэдэгдэл. Админ хэсгээс захиалгыг баталгаажуулна уу.",
+    footer: actions
+      ? "Товчийг дарахад баталгаажуулах хуудас нээгдэнэ — нэвтрэх шаардлагагүй. Холбоос 30 хоног хүчинтэй."
+      : "Энэ бол автомат мэдэгдэл. Админ хэсгээс захиалгыг баталгаажуулна уу.",
   });
 }
 
