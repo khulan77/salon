@@ -24,6 +24,11 @@ const features = [
     text: "Хэдхэн товшилтоор. Апп суулгах, бүртгүүлэх шаардлагагүй.",
   },
   {
+    icon: "🔔",
+    title: "Шинэ захиалга — шууд мэдэгдэнэ",
+    text: "Захиалга ирмэгц салоны админ болон тухайн мастерт имэйл мэдэгдэл очно. Хянах самбар дээр \"хүлээгдэж буй\" тоо шууд өснө.",
+  },
+  {
     icon: "⏱",
     title: "Давхардахгүй цаг",
     text: "Мастер бүрийн завсаг бодож, захиалагдсан цагийг автоматаар хаана.",
@@ -56,6 +61,11 @@ const tour = [
   { href: "/staff", label: "Мастерууд", note: "Хэн юу хийдэг, ямар цагт ажилладаг" },
   { href: "/book", label: "Цаг захиалах", note: "Жинхэнэ захиалгын урсгалыг туршиж үзнэ үү" },
   { href: "/my", label: "Миний захиалга", note: "Үйлчлүүлэгч захиалгаа хараад цуцална" },
+  {
+    href: "/demo/admin",
+    label: "Админ тал (үзүүлэн)",
+    note: "Захиалга баталгаажуулах, орлого харах — жишээ өгөгдөл дээр",
+  },
 ];
 
 const adminTools = [
@@ -229,7 +239,17 @@ export default function DemoPage() {
               </span>
             ))}
           </div>
-          <p className="mt-7 text-xs text-muted">
+          <div className="mt-9 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/demo/admin"
+              className="rounded-full bg-primary px-7 py-3.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-hover"
+            >
+              Админ талыг нээж үзэх
+            </Link>
+          </div>
+          <p className="mt-5 text-xs leading-5 text-muted">
+            Жишээ өгөгдөлтэй хуулбар — нууц үг шаардахгүй, юу ч эвдэхгүй.
+            <br />
             Ажилтан бүр өөрийн нэвтрэх эрхтэй — мастер зөвхөн өөрийн цагийг хардаг.
           </p>
         </div>

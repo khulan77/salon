@@ -26,6 +26,22 @@ import {
 // Үйлчлүүлэгч гадаадаас захиалж байсан ч салоны өнөөдрөөс эхэлнэ.
 const todayISO = salonToday;
 
+const WEEKDAY_SHORT = ["Ня", "Да", "Мя", "Лх", "Пү", "Ба", "Бя"];
+
+/** Хэдэн хоногийн огноог "2026-08-24" хэлбэрээр дараалуулна. */
+function nextDays(startISO: string, count: number): string[] {
+  const out: string[] = [];
+  const d = new Date(`${startISO}T00:00:00`);
+  for (let i = 0; i < count; i++) {
+    out.push(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-` +
+        String(d.getDate()).padStart(2, "0"),
+    );
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+
 export default function BookingForm({
   services,
   staff,
@@ -93,6 +109,14 @@ export default function BookingForm({
 
   const stepKey = stepKeys[step];
   const isLast = step === stepKeys.length - 1;
+
+  // Хоёр долоо хоногийн өдрүүд. Хэрэглэгч цаашхи огноо сонгосон бол түүнийг ч
+  // эгнээнд нэмнэ — эс тэгвэл аль өдөр сонгогдсон нь харагдахгүй.
+  const dayStrip = useMemo(() => {
+    const list = nextDays(todayISO(), 14);
+    if (date && !list.includes(date)) list.push(date);
+    return list;
+  }, [date]);
 
   const service = services.find((s) => s.id === serviceId);
   const selectedPackage = packages.find((p) => p.id === packageId);
@@ -477,17 +501,61 @@ export default function BookingForm({
                 Багцын нийт үргэлжлэх хугацаа: {formatDuration(packageInfo.durationMin)}
               </p>
             )}
-            <label className="mt-5 block text-sm font-medium text-foreground">Огноо</label>
-            <input
-              type="date"
-              value={date}
-              min={todayISO()}
-              onChange={(e) => {
-                setDate(e.target.value);
-                setTime("");
-              }}
-              className="input mt-2"
-            />
+            <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <p className="text-sm font-medium text-foreground">Огноо</p>
+              <p className="text-xs text-primary">{formatDate(date)}</p>
+            </div>
+
+            {/*
+              Утасны төрөлх календарь (`input[type=date]`) хөтөч бүр дээр өөр
+              өргөнтэй, өөр өнгөтэй гарч ирдэг тул сайтын загварыг эвддэг байв.
+              Оронд нь өдрүүдийг хажуу тийш гүйлгэдэг товч болгов — хуруугаар
+              хурдан сонгоно. Хайрцаг картын хажуугийн зайг давж бүтэн өргөнөөр
+              гүйнэ (`-mx-5`), ингэснээр сүүлийн өдөр таслагдаж харагдахгүй.
+            */}
+            <div className="no-scrollbar -mx-5 mt-2.5 flex snap-x gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:px-0">
+              {dayStrip.map((d, i) => {
+                const dow = new Date(`${d}T00:00:00`).getDay();
+                const dayNum = Number(d.slice(8));
+                const on = d === date;
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => {
+                      setDate(d);
+                      setTime("");
+                    }}
+                    className={`flex w-14 shrink-0 snap-start flex-col items-center gap-0.5 rounded-2xl py-2.5 transition-colors ${
+                      on
+                        ? "bg-primary text-white"
+                        : "bg-surface-2/70 text-foreground hover:bg-primary-soft hover:text-primary"
+                    }`}
+                  >
+                    <span className={`text-[10px] ${on ? "text-white/80" : "text-muted"}`}>
+                      {i === 0 ? "Өнөөдөр" : WEEKDAY_SHORT[dow]}
+                    </span>
+                    <span className="text-base font-semibold tabular-nums">{dayNum}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Хоёр долоо хоногоос цаашхи огноог төрөлх календараар сонгоно. */}
+            <label className="mt-3 flex items-center gap-2 text-xs text-muted">
+              Өөр өдөр
+              <input
+                type="date"
+                value={date}
+                min={todayISO()}
+                onChange={(e) => {
+                  if (!e.target.value) return;
+                  setDate(e.target.value);
+                  setTime("");
+                }}
+                className="field h-9 w-auto min-h-0 py-1 text-xs"
+              />
+            </label>
             <p className="mt-5 text-sm font-medium text-foreground">Боломжит цаг</p>
             {loadingSlots ? (
               <p className="mt-3 text-sm text-muted">Ачааллаж байна…</p>
