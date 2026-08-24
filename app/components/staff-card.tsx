@@ -2,10 +2,13 @@ import Link from "next/link";
 import type { Service, Staff } from "@/app/lib/types";
 
 /**
- * Мастерын карт — үйлчилгээний картын нэгэн адил арк хэлбэртэй. Хүрээтэй
- * цагаан хайрцаг ашиглахгүй: зураг өөрөө хэлбэрээ барина. Ингэснээр утсан
- * дээр хоёр баганаар нягт багтаж, урт цуваа үүсэхгүй. Бүтэн карт нь холбоос
- * тул хаана ч дарахад тухайн мастерын захиалга руу ороно.
+ * Мастерын карт — хүрээтэй цагаан хайрцаг ашиглахгүй: зураг өөрөө хэлбэрээ
+ * барина. Ингэснээр утсан дээр хоёр баганаар нягт багтаж, урт цуваа үүсэхгүй.
+ * Бүтэн карт нь холбоос тул хаана ч дарахад тухайн мастерын захиалга руу ороно.
+ *
+ * Зураг нь бүх дэлгэцэд энгийн дөрвөлжин (1:1), булан нь бараг мэдэгдэхгүй.
+ * Өмнө нь арк (бөмбөгөр) хэлбэртэй байсан нь хэт өндөр, хоосон талбайтай
+ * харагддаг байв.
  */
 export default function StaffCard({
   staff,
@@ -22,8 +25,8 @@ export default function StaffCard({
           .map((s) => s.name);
 
   return (
-    <Link href={`/book?staff=${staff.id}`} className="group block">
-      <div className="arch">
+    <Link href={`/book?staff=${staff.id}`} className="group flex h-full flex-col">
+      <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2">
         {staff.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -39,7 +42,7 @@ export default function StaffCard({
         )}
       </div>
 
-      <div className="mt-4 px-0.5">
+      <div className="mt-4 flex flex-1 flex-col px-0.5">
         <p className="truncate text-[0.6rem] font-medium uppercase tracking-[0.18em] text-primary sm:text-[0.66rem]">
           {staff.title}
         </p>
@@ -55,8 +58,11 @@ export default function StaffCard({
         {/*
           Нарийн карт дээр бүх мэргэжлийг жагсаавал үг дундуураа тасардаг тул
           нэгийг нь бүтнээр, үлдсэнийг "+N" гэж товчилно.
+
+          `mt-auto` — танилцуулга нь мастер бүрт өөр өөр урттай тул үүнгүйгээр
+          сумны товч эгнээ бүрт өөр өндөрт унжиж, эмх замбараагүй харагдана.
         */}
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-auto flex items-center gap-2 pt-3">
           <span className="min-w-0 flex-1 truncate text-xs text-muted">
             <span className="sm:hidden">
               {specialties[0]}
