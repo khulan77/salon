@@ -3,15 +3,12 @@ import { getBookings, getPackages, getServices } from "@/app/lib/db";
 import { staffSetBookingStatusAction } from "@/app/lib/actions";
 import { effectivePrice, formatDate, formatDuration, formatPrice } from "@/app/lib/format";
 import { salonToday } from "@/app/lib/time";
-import { StatusBadge } from "@/app/components/status-badge";
-import type { Booking, BookingStatus } from "@/app/lib/types";
-
-const STAFF_ACTIONS: { status: BookingStatus; label: string }[] = [
-  { status: "confirmed", label: "Батлах" },
-  { status: "done", label: "Дууссан" },
-  { status: "no_show", label: "Ирээгүй" },
-  { status: "cancelled", label: "Цуцлах" },
-];
+import {
+  ACTION_LABELS,
+  NEXT_STATUSES,
+  StatusBadge,
+} from "@/app/components/status-badge";
+import type { Booking } from "@/app/lib/types";
 
 export const metadata = { title: "Миний хуваарь" };
 
@@ -103,19 +100,19 @@ export default async function PortalPage() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
-                  {STAFF_ACTIONS.filter((a) => a.status !== b.status).map((a) => (
-                    <form key={a.status} action={staffSetBookingStatusAction}>
+                  {NEXT_STATUSES[b.status].map((next) => (
+                    <form key={next} action={staffSetBookingStatusAction}>
                       <input type="hidden" name="id" value={b.id} />
-                      <input type="hidden" name="status" value={a.status} />
+                      <input type="hidden" name="status" value={next} />
                       <button
                         type="submit"
                         className={`rounded-full border px-4 py-1.5 text-xs font-medium transition-colors ${
-                          a.status === "cancelled" || a.status === "no_show"
+                          next === "cancelled" || next === "no_show"
                             ? "border-border text-muted hover:border-rose-300 hover:text-rose-600"
                             : "border-border text-foreground hover:border-primary hover:text-primary"
                         }`}
                       >
-                        {a.label}
+                        {ACTION_LABELS[next]}
                       </button>
                     </form>
                   ))}

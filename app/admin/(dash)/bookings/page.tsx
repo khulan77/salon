@@ -10,19 +10,17 @@ import {
 import { bookingPrice, formatDate, formatPrice } from "@/app/lib/format";
 import { salonToday } from "@/app/lib/time";
 import { deleteBookingAction, setBookingStatusAction } from "@/app/lib/actions";
-import { StatusBadge, STATUS_LABELS } from "@/app/components/status-badge";
+import {
+  ACTION_LABELS,
+  NEXT_STATUSES,
+  StatusBadge,
+  STATUS_LABELS,
+} from "@/app/components/status-badge";
 import ConfirmForm from "../confirm-form";
 import NewBooking from "./new-booking";
 import type { BookingStatus } from "@/app/lib/types";
 
 export const metadata = { title: "Захиалгууд" };
-
-const ACTIONS: { status: BookingStatus; label: string }[] = [
-  { status: "confirmed", label: "Батлах" },
-  { status: "done", label: "Дуусгах" },
-  { status: "no_show", label: "Ирээгүй" },
-  { status: "cancelled", label: "Цуцлах" },
-];
 
 const STATUSES: BookingStatus[] = [
   "pending",
@@ -239,11 +237,62 @@ export default async function AdminBookingsPage({
                 ? `${svc.emoji} ${svc.name}`
                 : "—";
             const itemPrice = bookingPrice(b, services, packages);
+
+            const details = (
+              <>
+                <div className="grid gap-2 text-sm sm:grid-cols-3">
+                  <Info label={pkg ? "Багц" : "Үйлчилгээ"} value={itemLabel} />
+                  <Info label="Мастер" value={stf ? `${stf.emoji} ${stf.name}` : "—"} />
+                  <Info label="Төлбөр" value={itemPrice ? formatPrice(itemPrice) : "—"} />
+                  {hasBranches && (
+                    <Info label="Салбар" value={loc ? `🏢 ${loc.name || loc.address}` : "—"} />
+                  )}
+                </div>
+
+                {b.note && (
+                  <p className="mt-3 rounded-xl bg-surface-2 px-4 py-2.5 text-sm text-muted">
+                    📝 {b.note}
+                  </p>
+                )}
+
+                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+                  {NEXT_STATUSES[b.status].map((next) => (
+                    <form key={next} action={setBookingStatusAction}>
+                      <input type="hidden" name="id" value={b.id} />
+                      <input type="hidden" name="status" value={next} />
+                      <button
+                        type="submit"
+                        className={`rounded-full border border-border px-4 py-1.5 text-xs font-medium transition-colors ${
+                          next === "cancelled" || next === "no_show"
+                            ? "text-muted hover:border-rose-300 hover:text-rose-600"
+                            : "text-foreground hover:border-primary hover:text-primary"
+                        }`}
+                      >
+                        {b.status === "cancelled" && next === "confirmed"
+                          ? "Сэргээх"
+                          : ACTION_LABELS[next]}
+                      </button>
+                    </form>
+                  ))}
+                  <ConfirmForm
+                    action={deleteBookingAction}
+                    message={`${b.customerName} — ${formatDate(b.date)} ${b.time} захиалгыг бүрмөсөн устгах уу?`}
+                    className="ml-auto"
+                  >
+                    <input type="hidden" name="id" value={b.id} />
+                    <button
+                      type="submit"
+                      className="rounded-full px-4 py-1.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                    >
+                      Устгах
+                    </button>
+                  </ConfirmForm>
+                </div>
+              </>
+            );
+
             return (
-              <div
-                key={b.id}
-                className="rounded-2xl border border-border bg-surface p-5 shadow-sm"
-              >
+              <div key={b.id} className="card p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
@@ -278,52 +327,28 @@ export default async function AdminBookingsPage({
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
-                  <Info label={pkg ? "Багц" : "Үйлчилгээ"} value={itemLabel} />
-                  <Info label="Мастер" value={stf ? `${stf.emoji} ${stf.name}` : "—"} />
-                  <Info label="Төлбөр" value={itemPrice ? formatPrice(itemPrice) : "—"} />
-                  {hasBranches && (
-                    <Info label="Салбар" value={loc ? `🏢 ${loc.name || loc.address}` : "—"} />
-                  )}
-                </div>
-
-                {b.note && (
-                  <p className="mt-3 rounded-xl bg-surface-2 px-4 py-2.5 text-sm text-muted">
-                    📝 {b.note}
-                  </p>
-                )}
-
-                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-                  {ACTIONS.filter((a) => a.status !== b.status).map((a) => (
-                    <form key={a.status} action={setBookingStatusAction}>
-                      <input type="hidden" name="id" value={b.id} />
-                      <input type="hidden" name="status" value={a.status} />
-                      <button
-                        type="submit"
-                        className={`rounded-full border border-border px-4 py-1.5 text-xs font-medium transition-colors ${
-                          a.status === "cancelled" || a.status === "no_show"
-                            ? "text-muted hover:border-rose-300 hover:text-rose-600"
-                            : "text-foreground hover:border-primary hover:text-primary"
-                        }`}
+                {/*
+                  Дууссан захиалга бол ажил нь хийгдэж дууссан тул дэлгэрэнгүйг
+                  нь хаагаад зөвхөн толгойг нь харуулна — жагсаалт богиносч,
+                  идэвхтэй захиалгууд нүдэнд шууд тусна. `<details>` ашигласан
+                  тул нэмэлт JavaScript хэрэггүй.
+                */}
+                {b.status === "done" ? (
+                  <details className="group mt-3">
+                    <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-primary [&::-webkit-details-marker]:hidden">
+                      Дэлгэрэнгүй харах
+                      <span
+                        aria-hidden
+                        className="transition-transform group-open:rotate-180"
                       >
-                        {a.label}
-                      </button>
-                    </form>
-                  ))}
-                  <ConfirmForm
-                    action={deleteBookingAction}
-                    message={`${b.customerName} — ${formatDate(b.date)} ${b.time} захиалгыг бүрмөсөн устгах уу?`}
-                    className="ml-auto"
-                  >
-                    <input type="hidden" name="id" value={b.id} />
-                    <button
-                      type="submit"
-                      className="rounded-full px-4 py-1.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
-                    >
-                      Устгах
-                    </button>
-                  </ConfirmForm>
-                </div>
+                        ▾
+                      </span>
+                    </summary>
+                    <div className="mt-4">{details}</div>
+                  </details>
+                ) : (
+                  <div className="mt-4">{details}</div>
+                )}
               </div>
             );
           })}
