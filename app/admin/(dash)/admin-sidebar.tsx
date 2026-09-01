@@ -7,11 +7,8 @@ import { logoutAction } from "@/app/lib/actions";
 
 const nav = [
   { href: "/admin", label: "Хянах самбар", icon: "📊" },
-  { href: "/admin/bookings", label: "Захиалгууд", icon: "🗓️" },
-  { href: "/admin/revenue", label: "Орлого", icon: "💰" },
-  { href: "/admin/payments", label: "Төлбөрүүд", icon: "💳" },
-  { href: "/admin/services", label: "Үйлчилгээ", icon: "✨" },
-  { href: "/admin/packages", label: "Багц", icon: "🎁" },
+  { href: "/admin/calendar", label: "Хуанли", icon: "🗓️" },
+  { href: "/admin/services", label: "Үйлчилгээ", icon: "✨" }, // багц ч энд
   { href: "/admin/staff", label: "Мастерууд", icon: "💇‍♀️" },
   { href: "/admin/locations", label: "Салбарууд", icon: "🏢" },
   { href: "/admin/reviews", label: "Сэтгэгдэл", icon: "💬" },
@@ -46,7 +43,7 @@ export default function AdminSidebar({
         >
           <span>{n.icon}</span>
           <span className="flex-1">{n.label}</span>
-          {n.href === "/admin/bookings" && pendingCount > 0 && (
+          {n.href === "/admin" && pendingCount > 0 && (
             <span
               className={`min-w-5 rounded-full px-1.5 py-0.5 text-center text-xs font-semibold ${
                 isActive(n.href) ? "bg-white text-primary" : "bg-primary text-white"

@@ -9,7 +9,11 @@ import {
 } from "@/app/lib/db";
 import { bookingPrice, formatDate, formatPrice } from "@/app/lib/format";
 import { salonToday } from "@/app/lib/time";
-import { deleteBookingAction, setBookingStatusAction } from "@/app/lib/actions";
+import {
+  deleteBookingAction,
+  setBookingAmountsAction,
+  setBookingStatusAction,
+} from "@/app/lib/actions";
 import {
   ACTION_LABELS,
   NEXT_STATUSES,
@@ -117,9 +121,23 @@ export default async function AdminBookingsPage({
 
   return (
     <div>
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      {/*
+        Энэ хуудас хажуугийн цэсэнд байхаа больсон — хуанли үндсэн харагдац
+        болсон. Хуанлиас захиалга дээр дарахад энд ирдэг тул буцах зам
+        харагдаж байх ёстой.
+      */}
+      <Link
+        href="/admin/calendar"
+        className="inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-primary"
+      >
+        ← Хуанли
+      </Link>
+
+      <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-semibold text-foreground">Захиалгууд</h1>
+          <h1 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">
+            Захиалгууд
+          </h1>
           <p className="mt-1 text-muted">
             {filtered
               ? `Шүүлтэд тохирсон ${total} захиалга.`
@@ -247,6 +265,58 @@ export default async function AdminBookingsPage({
                   {hasBranches && (
                     <Info label="Салбар" value={loc ? `🏢 ${loc.name || loc.address}` : "—"} />
                   )}
+                </div>
+
+                {/*
+                  Төлбөрийн хэсэг. Салонд урьдчилгааг бэлнээр/дансаар авдаг,
+                  үйлчилгээний явцад нэмэлт төлбөр гардаг тул хоёуланг нь
+                  админ гараар бүртгэнэ. Үлдэгдлийг систем бодож харуулна —
+                  мастер тооны машин бариад суух шаардлагагүй.
+                */}
+                <div className="mt-4 rounded-2xl bg-surface-2/60 p-4">
+                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+                    <span className="text-muted">
+                      Үнэ{" "}
+                      <b className="text-foreground">
+                        {itemPrice ? formatPrice(itemPrice) : "—"}
+                      </b>
+                    </span>
+                    {b.extraCharge > 0 && (
+                      <span className="text-muted">
+                        Нэмэлт{" "}
+                        <b className="text-foreground">+{formatPrice(b.extraCharge)}</b>
+                      </span>
+                    )}
+                    {b.depositPaid > 0 && (
+                      <span className="text-muted">
+                        Урьдчилгаа{" "}
+                        <b className="text-emerald-700">−{formatPrice(b.depositPaid)}</b>
+                      </span>
+                    )}
+                    <span className="ms-auto text-muted">
+                      Үлдэгдэл{" "}
+                      <b className="text-foreground">
+                        {formatPrice(
+                          Math.max(0, itemPrice + b.extraCharge - b.depositPaid),
+                        )}
+                      </b>
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <AmountField
+                      id={b.id}
+                      field="deposit"
+                      label="💵 Төлсөн урьдчилгаа"
+                      value={b.depositPaid}
+                    />
+                    <AmountField
+                      id={b.id}
+                      field="extra"
+                      label="➕ Нэмэлт төлбөр"
+                      value={b.extraCharge}
+                    />
+                  </div>
                 </div>
 
                 {b.note && (
@@ -383,6 +453,57 @@ export default async function AdminBookingsPage({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Дүн бүртгэх нугалдаг талбар. `<details>` ашигласан тул нэмэлт JavaScript
+ * шаардахгүй — товч дарахад доор нь оруулах нүд нээгдэнэ.
+ */
+function AmountField({
+  id,
+  field,
+  label,
+  value,
+}: {
+  id: string;
+  field: "deposit" | "extra";
+  label: string;
+  value: number;
+}) {
+  return (
+    <details className="min-w-[11rem] flex-1">
+      <summary
+        className={`inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-colors [&::-webkit-details-marker]:hidden ${
+          value > 0
+            ? "bg-primary-soft text-primary"
+            : "border border-border text-foreground hover:border-primary hover:text-primary"
+        }`}
+      >
+        {label}
+        {value > 0 && <span className="tabular-nums">· {formatPrice(value)}</span>}
+      </summary>
+      <form action={setBookingAmountsAction} className="mt-2 flex gap-2">
+        <input type="hidden" name="id" value={id} />
+        <input type="hidden" name="field" value={field} />
+        <input
+          name="amount"
+          type="number"
+          min="0"
+          step="1000"
+          inputMode="numeric"
+          defaultValue={value || ""}
+          placeholder="0"
+          className="field h-10 min-h-0 w-full py-1"
+        />
+        <button
+          type="submit"
+          className="shrink-0 rounded-full bg-primary px-4 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
+        >
+          Хадгалах
+        </button>
+      </form>
+    </details>
   );
 }
 

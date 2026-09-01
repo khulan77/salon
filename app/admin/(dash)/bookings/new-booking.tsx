@@ -21,11 +21,16 @@ export default function NewBooking({
   staff,
   locations,
   packages,
+  initialDate,
+  initialLocationId,
 }: {
   services: Service[];
   staff: Staff[];
   locations: Location[];
   packages: ServicePackage[];
+  /** Хуанлиас дуудахад харж буй өдөр, салбарыг урьдчилж бөглөнө. */
+  initialDate?: string;
+  initialLocationId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<AdminBookState, FormData>(
@@ -34,11 +39,13 @@ export default function NewBooking({
   );
 
   const multiBranch = locations.length > 1;
-  const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
+  const [locationId, setLocationId] = useState(
+    initialLocationId ?? locations[0]?.id ?? "",
+  );
   // Үйлчилгээ, багцыг нэг сонгогчид нэгтгэв: "svc:<id>" эсвэл "pkg:<id>".
   const [item, setItem] = useState("");
   const [staffId, setStaffId] = useState("");
-  const [date, setDate] = useState(salonToday());
+  const [date, setDate] = useState(initialDate ?? salonToday());
   const [time, setTime] = useState("");
   const [freeTime, setFreeTime] = useState(false);
 

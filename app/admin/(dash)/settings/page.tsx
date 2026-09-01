@@ -113,11 +113,7 @@ export default async function AdminSettingsPage() {
           <p className="mt-3 rounded-xl bg-surface-2/70 px-4 py-3 text-xs leading-5 text-muted">
             ⚠️ Төлбөрийн систем хараахан холбогдоогүй байна — одоогоор{" "}
             <b>туршилтын горимд</b> ажиллана (бодит мөнгө хөдлөхгүй). QPay
-            merchant данс авмагц холбоно.{" "}
-            <Link href="/admin/payments" className="text-primary hover:underline">
-              Төлбөрүүд
-            </Link>{" "}
-            хуудаснаас явцыг харна.
+            merchant данс авмагц холбоно.
           </p>
         </section>
 

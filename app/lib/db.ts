@@ -170,6 +170,9 @@ const bookingFromRow = (r: any): Booking => ({
   // унах fallback ажиллахгүй.
   locationId: r.location_id || undefined,
   packageId: r.package_id || undefined,
+  // Хуучин мэдээллийн санд багана байхгүй байж болно — 0 гэж үзнэ.
+  depositPaid: r.deposit_paid ?? 0,
+  extraCharge: r.extra_charge ?? 0,
   createdAt: r.created_at,
 });
 
@@ -538,7 +541,10 @@ const CODE_INDEX = "bookings_code_key";
 const CODE_ATTEMPTS = 5;
 
 export async function createBooking(
-  input: Omit<Booking, "id" | "createdAt" | "status" | "code"> & {
+  input: Omit<
+    Booking,
+    "id" | "createdAt" | "status" | "code" | "depositPaid" | "extraCharge"
+  > & {
     status?: Booking["status"];
   },
 ): Promise<Booking> {
@@ -565,7 +571,9 @@ export async function createBooking(
   for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
     const code = newBookingCode();
     const { error } = await db().from("bookings").insert({ ...row, code });
-    if (!error) return { ...input, id, status, code, createdAt };
+    // Шинэ захиалгад төлбөр хараахан бүртгэгдээгүй.
+    if (!error)
+      return { ...input, id, status, code, createdAt, depositPaid: 0, extraCharge: 0 };
     if (error.code !== "23505") throw new Error(error.message);
 
     const conflict = `${error.message} ${error.details ?? ""}`;
@@ -608,6 +616,30 @@ export async function updateBookingStatus(
     // эзэлчихсэн байж болно.
     if (error.code === "23505") {
       throw new Error("Энэ цагт өөр захиалга бүртгэгдсэн тул сэргээх боломжгүй.");
+    }
+    throw new Error(error.message);
+  }
+}
+
+/**
+ * Захиалгын төлбөрийн дүнг шинэчилнэ (төлсөн урьдчилгаа, нэмэлт төлбөр).
+ * Багана нь хуучин мэдээллийн санд байхгүй бол ойлгомжтой алдаа буцаана.
+ */
+export async function updateBookingAmounts(
+  id: string,
+  amounts: { depositPaid?: number; extraCharge?: number },
+): Promise<void> {
+  const patch: Record<string, number> = {};
+  if (amounts.depositPaid !== undefined) patch.deposit_paid = amounts.depositPaid;
+  if (amounts.extraCharge !== undefined) patch.extra_charge = amounts.extraCharge;
+  if (Object.keys(patch).length === 0) return;
+
+  const { error } = await db().from("bookings").update(patch).eq("id", id);
+  if (error) {
+    if (/column .* does not exist/i.test(error.message)) {
+      throw new Error(
+        "Мэдээллийн санд төлбөрийн багана алга. supabase/migrations/007-booking-payments.sql-ыг ажиллуулна уу.",
+      );
     }
     throw new Error(error.message);
   }

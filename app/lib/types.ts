@@ -71,6 +71,8 @@ export type Booking = {
   code: string; // үйлчлүүлэгчид өгөх 6 тэмдэгт хайх код, ж: "K7F2QX"
   locationId?: string; // захиалга хийгдсэн салбар
   packageId?: string; // багцаар захиалсан бол багцын id (serviceId хоосон байна)
+  depositPaid: number; // урьдчилж төлсөн дүн ₮ (админ гараар бүртгэнэ)
+  extraCharge: number; // явцад нэмэгдсэн төлбөр ₮
   createdAt: string; // ISO
 };
 

@@ -99,6 +99,10 @@ alter table public.bookings add column if not exists package_id text;
 alter table public.bookings add column if not exists code text;
 create unique index if not exists bookings_code_key on public.bookings (code);
 
+-- Гараар бүртгэх төлбөр: төлсөн урьдчилгаа ба нэмэлт төлбөр (хуучин санд нэмнэ).
+alter table public.bookings add column if not exists deposit_paid integer not null default 0;
+alter table public.bookings add column if not exists extra_charge integer not null default 0;
+
 -- Нэг мастерын нэг цагт хоёр захиалга орохоос сэргийлнэ (цуцлагдсаныг тооцохгүй).
 create unique index if not exists bookings_staff_slot_key
   on public.bookings (staff_id, date, time)

@@ -77,13 +77,6 @@ export default async function AdminDashboard() {
         <p className="mt-1.5 font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
           {formatPrice(revenue)}
         </p>
-        <Link
-          href="/admin/revenue"
-          className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary sm:text-sm"
-        >
-          Дэлгэрэнгүй тайлан
-          <span aria-hidden>→</span>
-        </Link>
       </div>
 
       {/*

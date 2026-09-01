@@ -32,6 +32,7 @@ import {
   getSettings,
   getStaffForService,
   getStaffMember,
+  updateBookingAmounts,
   updateBookingStatus,
   updatePayment,
   updateLocation,
@@ -797,6 +798,28 @@ export async function emailBookingActionAction(formData: FormData): Promise<void
   revalidatePath(`/confirm/${token}`);
 }
 
+/**
+ * Захиалгын төлбөрийг гараар бүртгэнэ.
+ *
+ * Салонд бодит байдал: үйлчлүүлэгч урьдчилгаагаа бэлнээр эсвэл дансаар өгдөг,
+ * үйлчилгээний явцад нэмэлт зүйл (урт үс, нэмэлт бодис) гарч үнэ өөрчлөгддөг.
+ * Тиймээс энэ хоёр дүнг админ өөрөө бичиж, үлдэгдлийг систем бодно.
+ */
+export async function setBookingAmountsAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const field = String(formData.get("field") ?? "");
+  // Хоосон, сөрөг, бутархай утгыг цэгцэлнэ — мөнгө бүхэл тоо.
+  const amount = Math.max(0, Math.round(Number(formData.get("amount")) || 0));
+
+  if (field === "deposit") await updateBookingAmounts(id, { depositPaid: amount });
+  else if (field === "extra") await updateBookingAmounts(id, { extraCharge: amount });
+
+  revalidatePath("/admin/bookings");
+  revalidatePath("/admin/calendar");
+  revalidatePath("/admin");
+}
+
 export async function deleteBookingAction(formData: FormData): Promise<void> {
   await requireAdmin();
   await deleteBooking(String(formData.get("id") ?? ""));
@@ -1067,7 +1090,8 @@ export async function deleteLocationAction(formData: FormData): Promise<void> {
 /* ---------------- Admin: packages (багц) ---------------- */
 
 function revalidatePackages(): void {
-  revalidatePath("/admin/packages");
+  // Багц одоо админы «Үйлчилгээ» хуудасны нэг таб — тэр хуудсыг шинэчилнэ.
+  revalidatePath("/admin/services");
   revalidatePath("/services");
   revalidatePath("/book");
   revalidatePath("/");
