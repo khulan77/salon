@@ -221,6 +221,44 @@ h1, h2, h3, h4, .font-display {
     }
   }
 
+  /*
+    Админы хуанлийн захиалгын блок. Тор дэлгэцэд багтахаар шахагддаг тул
+    блокны пиксель өндрийг урьдчилж мэдэхгүй — дотор нь юу харуулахыг блокны
+    өөрийн өндрөөр (container query) шийднэ: богинод зөвхөн нэр, өндөр болох
+    тусам цаг, үйлчилгээ, үнэ нэмэгдэнэ.
+  */
+  .cal-block {
+    container-type: size;
+  }
+  .cal-body {
+    justify-content: center;
+    padding: 1px 6px 1px 10px;
+  }
+  .cal-time,
+  .cal-item,
+  .cal-price {
+    display: none;
+  }
+  @container (min-height: 38px) {
+    .cal-body {
+      justify-content: flex-start;
+      padding-block: 4px;
+    }
+    .cal-time {
+      display: block;
+    }
+  }
+  @container (min-height: 56px) {
+    .cal-item {
+      display: block;
+    }
+  }
+  @container (min-height: 74px) {
+    .cal-price {
+      display: block;
+    }
+  }
+
   /* Section eyebrow */
   .eyebrow {
     font-size: 0.75rem;

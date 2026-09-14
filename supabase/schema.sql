@@ -103,6 +103,13 @@ create unique index if not exists bookings_code_key on public.bookings (code);
 alter table public.bookings add column if not exists deposit_paid integer not null default 0;
 alter table public.bookings add column if not exists extra_charge integer not null default 0;
 
+-- Нэг дор захиалсан олон үйлчилгээг холбоно (хуучин санд нэмнэ).
+alter table public.bookings add column if not exists group_id text;
+create index if not exists bookings_group_idx on public.bookings (group_id);
+
+-- ⭐ Үйлчлүүлэгч зөвхөн энэ мастер дээр — өөр мастер руу шилжүүлэхгүй.
+alter table public.bookings add column if not exists staff_locked boolean not null default false;
+
 -- Нэг мастерын нэг цагт хоёр захиалга орохоос сэргийлнэ (цуцлагдсаныг тооцохгүй).
 create unique index if not exists bookings_staff_slot_key
   on public.bookings (staff_id, date, time)

@@ -1,20 +1,27 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { Fragment, useActionState, useEffect, useMemo, useState } from "react";
 import type { Location, Service, ServicePackage, Staff } from "@/app/lib/types";
 import {
   adminCreateBookingAction,
-  getAvailableSlotsAction,
+  getMultiAvailableSlotsAction,
   getPackageAvailableSlotsAction,
   type AdminBookState,
 } from "@/app/lib/actions";
 import { effectivePrice, formatDuration, formatPrice } from "@/app/lib/format";
 import { salonToday } from "@/app/lib/time";
+import { MAX_ITEMS } from "@/app/lib/booking-items";
+
+/** Нэг мөр = нэг үйлчилгээ (эсвэл багц) ба түүнийг хийх мастер. */
+type Line = { item: string; staffId: string };
 
 /**
  * Утсаар залгасан үйлчлүүлэгчийг админ өөрөө бүртгэх маягт. Үйлчлүүлэгчийн
  * хэсэгтэй ижил сул цагийн хөдөлгүүрийг ашиглана — ялгаа нь захиалгыг шууд
  * баталгаажуулах, шаардлагатай бол хуваариас гадуур цаг оруулах боломж.
+ *
+ * "+ Үйлчилгээ нэмэх" дарж нэг үйлчлүүлэгчид хэд хэдэн үйлчилгээ бүртгэнэ —
+ * өөр мастерт оногдвол зэрэг, нэг мастерт бол дараалан эхэлнэ.
  */
 export default function NewBooking({
   services,
@@ -43,35 +50,50 @@ export default function NewBooking({
     initialLocationId ?? locations[0]?.id ?? "",
   );
   // Үйлчилгээ, багцыг нэг сонгогчид нэгтгэв: "svc:<id>" эсвэл "pkg:<id>".
-  const [item, setItem] = useState("");
-  const [staffId, setStaffId] = useState("");
+  // Багцыг зөвхөн эхний мөрөнд, ганцаараа сонгож болно.
+  const [lines, setLines] = useState<Line[]>([{ item: "", staffId: "" }]);
   const [date, setDate] = useState(initialDate ?? salonToday());
   const [time, setTime] = useState("");
   const [freeTime, setFreeTime] = useState(false);
 
-  const serviceId = item.startsWith("svc:") ? item.slice(4) : "";
-  const packageId = item.startsWith("pkg:") ? item.slice(4) : "";
-
-  // Салбар болон сонгосон үйлчилгээнд тохирох мастерууд. Багц сонгосон үед
-  // салбарын бүх мастер боломжтой; салбаргүй мастер бүх салбарт үзэгдэнэ.
-  const availableStaff = useMemo(
+  const packageId = lines[0].item.startsWith("pkg:") ? lines[0].item.slice(4) : "";
+  const packageStaffId = packageId ? lines[0].staffId : "";
+  const items = useMemo(
     () =>
-      staff.filter((m) => {
-        const okBranch = !multiBranch || !m.locationId || m.locationId === locationId;
-        const okService =
-          !!packageId ||
-          !serviceId ||
-          m.serviceIds.length === 0 ||
-          m.serviceIds.includes(serviceId);
-        return okBranch && okService;
-      }),
-    [staff, serviceId, packageId, locationId, multiBranch],
+      packageId
+        ? []
+        : lines.map((l) => ({
+            serviceId: l.item.startsWith("svc:") ? l.item.slice(4) : "",
+            staffId: l.staffId,
+          })),
+    [lines, packageId],
   );
+
+  /** Салбар болон үйлчилгээнд тохирох мастерууд (багц бол салбарын бүгд). */
+  const staffOptions = (serviceId: string) =>
+    staff.filter((m) => {
+      const okBranch = !multiBranch || !m.locationId || m.locationId === locationId;
+      const okService =
+        !serviceId || m.serviceIds.length === 0 || m.serviceIds.includes(serviceId);
+      return okBranch && okService;
+    });
+
+  const updateLine = (i: number, patch: Partial<Line>) => {
+    setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+    setTime("");
+  };
 
   // Сул цагийг сонголт бүрд шинэчилнэ. Хариуг түлхүүртэй нь хамт хадгалснаар
   // "ачаалж байна" төлөвийг тооцоолж гаргана — effect дотор setState хийхгүй.
-  const key = `${serviceId}|${packageId}|${staffId}|${date}|${locationId}`;
-  const ready = Boolean((serviceId || packageId) && staffId && date);
+  const key = packageId
+    ? `pkg|${packageId}|${packageStaffId}|${date}|${locationId}`
+    : `svc|${items.map((i) => `${i.serviceId}:${i.staffId}`).join(",")}|${date}|${locationId}`;
+  const ready = Boolean(
+    date &&
+      (packageId
+        ? packageStaffId
+        : items.length > 0 && items.every((i) => i.serviceId && i.staffId)),
+  );
   const [loaded, setLoaded] = useState<{ key: string; slots: string[] }>({
     key: "",
     slots: [],
@@ -81,15 +103,15 @@ export default function NewBooking({
     if (!ready) return;
     let active = true;
     const req = packageId
-      ? getPackageAvailableSlotsAction(packageId, staffId, date, locationId)
-      : getAvailableSlotsAction(serviceId, staffId, date, locationId);
+      ? getPackageAvailableSlotsAction(packageId, packageStaffId, date, locationId)
+      : getMultiAvailableSlotsAction(items, date, locationId);
     req.then((slots) => {
       if (active) setLoaded({ key, slots });
     });
     return () => {
       active = false;
     };
-  }, [key, ready, serviceId, packageId, staffId, date, locationId]);
+  }, [key, ready, packageId, packageStaffId, items, date, locationId]);
 
   const fresh = loaded.key === key;
   const slots = fresh ? loaded.slots : [];
@@ -132,7 +154,7 @@ export default function NewBooking({
         <div className="mt-5 rounded-2xl bg-primary-soft/60 p-5">
           <p className="text-sm text-foreground">✓ Захиалга бүртгэгдлээ — {state.summary}</p>
           <p className="mt-2 text-xs text-muted">Үйлчлүүлэгчид өгөх код</p>
-          <p className="font-mono text-3xl font-semibold tracking-[0.3em] text-primary">
+          <p className="break-words font-mono text-2xl font-semibold tracking-[0.2em] text-primary sm:text-3xl">
             {state.code}
           </p>
         </div>
@@ -144,7 +166,18 @@ export default function NewBooking({
       )}
 
       <form action={formAction} className="mt-5 grid gap-4 sm:grid-cols-2">
-        <input type="hidden" name="serviceId" value={serviceId} />
+        {/* Мөр бүрд serviceId + staffId хос дараалан — сервер i дэхийг нь
+            хооронд нь холбож уншина. Багц бол serviceId хоосон. */}
+        {lines.map((l, i) => (
+          <Fragment key={i}>
+            <input
+              type="hidden"
+              name="serviceId"
+              value={l.item.startsWith("svc:") ? l.item.slice(4) : ""}
+            />
+            <input type="hidden" name="staffId" value={l.staffId} />
+          </Fragment>
+        ))}
         <input type="hidden" name="packageId" value={packageId} />
 
         {multiBranch && (
@@ -154,8 +187,16 @@ export default function NewBooking({
               value={locationId}
               onChange={(e) => {
                 setLocationId(e.target.value);
-                const m = staff.find((x) => x.id === staffId);
-                if (m?.locationId && m.locationId !== e.target.value) setStaffId("");
+                // Өөр салбарын мастер сонгосон мөрүүдийг цэвэрлэнэ.
+                setLines(
+                  lines.map((l) => {
+                    const m = staff.find((x) => x.id === l.staffId);
+                    return m?.locationId && m.locationId !== e.target.value
+                      ? { ...l, staffId: "" }
+                      : l;
+                  }),
+                );
+                setTime("");
               }}
               className="field"
             >
@@ -169,54 +210,103 @@ export default function NewBooking({
         )}
         {!multiBranch && <input type="hidden" name="locationId" value={locationId} />}
 
-        <F label="Үйлчилгээ / багц">
-          <select
-            value={item}
-            onChange={(e) => {
-              setItem(e.target.value);
-              setTime("");
-            }}
-            className="field"
-          >
-            <option value="">— сонгоно уу —</option>
-            {packages.length > 0 && (
-              <optgroup label="Багц">
-                {packages.map((p) => (
-                  <option key={p.id} value={`pkg:${p.id}`}>
-                    {p.emoji} {p.name} — {formatPrice(p.price)}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            <optgroup label="Үйлчилгээ">
-              {services.map((s) => (
-                <option key={s.id} value={`svc:${s.id}`}>
-                  {s.emoji} {s.name} — {formatPrice(effectivePrice(s))} ·{" "}
-                  {formatDuration(s.durationMin)}
-                </option>
-              ))}
-            </optgroup>
-          </select>
-        </F>
+        {lines.map((line, i) => {
+          const lineService = line.item.startsWith("svc:") ? line.item.slice(4) : "";
+          // Бусад мөрөнд сонгосон үйлчилгээг давхар сонгуулахгүй.
+          const taken = new Set(lines.filter((_, j) => j !== i).map((l) => l.item));
+          return (
+            <Fragment key={i}>
+              <F
+                label={i === 0 ? "Үйлчилгээ / багц" : `Үйлчилгээ ${i + 1}`}
+                aside={
+                  i > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLines(lines.filter((_, j) => j !== i));
+                        setTime("");
+                      }}
+                      className="text-xs text-muted hover:text-rose-600"
+                    >
+                      Хасах
+                    </button>
+                  )
+                }
+              >
+                <select
+                  value={line.item}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    // Мастер энэ үйлчилгээг хийдэггүй бол цэвэрлэнэ.
+                    const m = staff.find((x) => x.id === line.staffId);
+                    const svc = next.startsWith("svc:") ? next.slice(4) : "";
+                    const keep =
+                      !m || !svc || m.serviceIds.length === 0 || m.serviceIds.includes(svc);
+                    updateLine(i, { item: next, staffId: keep ? line.staffId : "" });
+                  }}
+                  className="field"
+                >
+                  <option value="">— сонгоно уу —</option>
+                  {i === 0 && lines.length === 1 && packages.length > 0 && (
+                    <optgroup label="Багц">
+                      {packages.map((p) => (
+                        <option key={p.id} value={`pkg:${p.id}`}>
+                          {p.emoji} {p.name} — {formatPrice(p.price)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <optgroup label="Үйлчилгээ">
+                    {services
+                      .filter((s) => !taken.has(`svc:${s.id}`))
+                      .map((s) => (
+                        <option key={s.id} value={`svc:${s.id}`}>
+                          {s.emoji} {s.name} — {formatPrice(effectivePrice(s))} ·{" "}
+                          {formatDuration(s.durationMin)}
+                        </option>
+                      ))}
+                  </optgroup>
+                </select>
+              </F>
 
-        <F label="Мастер">
-          <select
-            name="staffId"
-            value={staffId}
-            onChange={(e) => {
-              setStaffId(e.target.value);
-              setTime("");
-            }}
-            className="field"
-          >
-            <option value="">— сонгоно уу —</option>
-            {availableStaff.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.emoji} {m.name}
-              </option>
-            ))}
-          </select>
-        </F>
+              <F label="Мастер">
+                <select
+                  value={line.staffId}
+                  onChange={(e) => updateLine(i, { staffId: e.target.value })}
+                  className="field"
+                >
+                  <option value="">— сонгоно уу —</option>
+                  {staffOptions(lineService).map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.emoji} {m.name}
+                    </option>
+                  ))}
+                </select>
+              </F>
+            </Fragment>
+          );
+        })}
+
+        {!packageId && lines.length < MAX_ITEMS && (
+          <div className="sm:col-span-2">
+            <button
+              type="button"
+              onClick={() => {
+                setLines([...lines, { item: "", staffId: "" }]);
+                setTime("");
+              }}
+              className="min-h-11 rounded-full bg-surface-2 px-4 text-sm font-medium text-foreground transition-colors hover:bg-primary-soft hover:text-primary"
+            >
+              + Үйлчилгээ нэмэх
+            </button>
+            {lines.length > 1 && (
+              <p className="mt-2 text-xs text-muted">
+                Өөр мастерт оногдсон үйлчилгээнүүд зэрэг, нэг мастерт бол дараалан
+                эхэлнэ. Цагийн жагсаалтад бүх мастер зэрэг сул цаг л гарна.
+              </p>
+            )}
+          </div>
+        )}
 
         <F label="Огноо">
           <input
@@ -331,14 +421,20 @@ function F({
   label,
   children,
   full,
+  aside,
 }: {
   label: string;
   children: React.ReactNode;
   full?: boolean;
+  /** Шошгоны баруун талд — жишээ нь "Хасах" товч. */
+  aside?: React.ReactNode;
 }) {
   return (
     <label className={`block ${full ? "sm:col-span-2" : ""}`}>
-      <span className="mb-1.5 block text-sm font-medium text-foreground">{label}</span>
+      <span className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        {aside}
+      </span>
       {children}
     </label>
   );

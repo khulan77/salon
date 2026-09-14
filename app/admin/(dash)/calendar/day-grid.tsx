@@ -1,17 +1,21 @@
 import Link from "next/link";
 import type { Booking, Staff } from "@/app/lib/types";
 import { formatPrice } from "@/app/lib/format";
+import FitHeight from "./fit-height";
+import ConfirmCheck from "./confirm-check";
+import StarToggle from "./star-toggle";
 
 /*
   Өдрийн хуанли — мастер бүр нэг багана, цаг доошоо урсана.
 
-  Хэвтээ шугам, блокуудыг пиксельээр байрлуулна: нэг минут = `PX_PER_MIN`
-  пиксел. Ингэснээр 45 минутын үйлчилгээ 45 минутын өндөртэй яг харагдана —
-  зөвхөн жагсаалт байхад ойлгогддоггүй "хэн хэзээ завтай вэ" гэдэг нь нэг
-  харцаар мэдэгдэнэ.
+  Тор нь дэлгэцийн өндөрт багтана (`FitHeight`), шугам, блокуудыг ажлын
+  цагийн хувиар байрлуулна. Ингэснээр нээхээс хаах хүртэлх бүх цаг доош
+  гүйлгэлгүй харагдаж, 45 минутын үйлчилгээ 45 минутын өндөртэй хэвээр үлдэнэ —
+  "хэн хэзээ завтай вэ" гэдэг нь нэг харцаар мэдэгдэнэ.
 */
 
-export const PX_PER_MIN = 1.4;
+/** Дэлгэц хэт намхан үед ч нэг минутад дор хаяж ийм пиксел ноогдоно. */
+const MIN_PX_PER_MIN = 0.6;
 
 export type CalBooking = {
   booking: Booking;
@@ -30,16 +34,49 @@ export type Column = {
 };
 
 /**
- * Блокны өнгө төлөвөөр. Зүүн талын нарийн зурвас нь тод, дэвсгэр нь зөөлөн —
- * олон блок зэрэг харагдахад нүд ядрахгүй, гэхдээ төлөв нь шууд ялгарна.
+ * Захиалга бүр өөрийн өнгөтэй — зэрэгцээ блокууд хоорондоо нийлж харагдахгүй.
+ * Зүүн талын нарийн зурвас нь тод, дэвсгэр нь зөөлөн — олон блок зэрэг
+ * харагдахад нүд ядрахгүй. Төлөвийг өнгөөр биш, баруун дээд булангийн
+ * check-ээр ялгана (доорх тайлбарыг үз).
  */
-const STATUS_STYLES: Record<string, { block: string; bar: string }> = {
-  pending: { block: "bg-amber-50 text-amber-900", bar: "bg-amber-400" },
-  confirmed: { block: "bg-primary-soft text-foreground", bar: "bg-primary" },
-  done: { block: "bg-emerald-50 text-emerald-900", bar: "bg-emerald-500" },
-  no_show: { block: "bg-zinc-100 text-zinc-600", bar: "bg-zinc-400" },
-  cancelled: { block: "bg-surface-2 text-muted", bar: "bg-border" },
-};
+const PALETTE = [
+  { block: "bg-rose-100 text-rose-950", bar: "bg-rose-400" },
+  { block: "bg-sky-100 text-sky-950", bar: "bg-sky-500" },
+  { block: "bg-amber-100 text-amber-950", bar: "bg-amber-500" },
+  { block: "bg-violet-100 text-violet-950", bar: "bg-violet-500" },
+  { block: "bg-emerald-100 text-emerald-950", bar: "bg-emerald-500" },
+  { block: "bg-orange-100 text-orange-950", bar: "bg-orange-400" },
+  { block: "bg-teal-100 text-teal-950", bar: "bg-teal-500" },
+  { block: "bg-fuchsia-100 text-fuchsia-950", bar: "bg-fuchsia-400" },
+  { block: "bg-lime-100 text-lime-950", bar: "bg-lime-600" },
+  { block: "bg-indigo-100 text-indigo-950", bar: "bg-indigo-400" },
+];
+
+/** Захиалгын id-аас тогтвортой тоо — нэг захиалга үргэлж нэг өнгөтэй байна. */
+function hashOf(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+/**
+ * Баганын захиалга бүрт өнгө ононо. Өнгө нь id-аас гарна, гэхдээ яг өмнөх
+ * (дээрх) блоктой давхцвал дараагийн өнгийг авна — хөрш хоёр ижил өнгөтэй
+ * болж, нэг урт захиалга мэт харагдахаас сэргийлнэ. Хамт захиалсан
+ * үйлчилгээнүүд (өөр мастерууд зэрэг хийх) бүлгийн id-аараа ижил өнгөтэй —
+ * нэг үйлчлүүлэгч гэдэг нь баганууд дундуур шууд танигдана.
+ */
+function colorsFor(bookings: CalBooking[]): Map<string, (typeof PALETTE)[number]> {
+  const map = new Map<string, (typeof PALETTE)[number]>();
+  let prev = -1;
+  for (const b of [...bookings].sort((x, y) => x.startMin - y.startMin)) {
+    let i = hashOf(b.booking.groupId ?? b.booking.id) % PALETTE.length;
+    if (i === prev) i = (i + 1) % PALETTE.length;
+    map.set(b.booking.id, PALETTE[i]);
+    prev = i;
+  }
+  return map;
+}
 
 /** "10:00" -> 600 */
 export function toMinutes(hhmm: string): number {
@@ -65,8 +102,11 @@ export default function DayGrid({
   closeMin,
   stepMin,
   nowMin,
+  editHref,
 }: {
   columns: Column[];
+  /** Блок дээр дарахад нээгдэх засах хуудасны холбоос. */
+  editHref: (bookingId: string) => string;
   /** Тухайн өдрийн цуцлагдсан захиалгууд — торыг бөглөхгүй, доор түүх болно. */
   cancelled: CalBooking[];
   openMin: number;
@@ -77,8 +117,12 @@ export default function DayGrid({
   nowMin?: number;
 }) {
   const totalMin = Math.max(60, closeMin - openMin);
-  const height = totalMin * PX_PER_MIN;
   const lines = Math.ceil(totalMin / stepMin);
+  /** Ажлын цагийн эхнээс хэдэн хувьд байх вэ — шугам, блокны байрлал. */
+  const pct = (min: number) => `${(min / totalMin) * 100}%`;
+  const showNow = nowMin !== undefined && nowMin >= openMin && nowMin <= closeMin;
+  // Цагийн багана + мастер бүрт 9rem — үүнээс нарийсвал хажуу тийш гүйлгэнэ.
+  const minWidth = `calc(3.5rem + ${columns.length} * 9rem)`;
 
   const all = columns.flatMap((c) => c.bookings);
   const dayTotal = all.reduce((sum, b) => sum + b.price, 0);
@@ -99,7 +143,8 @@ export default function DayGrid({
             {cancelled.map((b) => (
               <li key={b.booking.id}>
                 <Link
-                  href={`/admin/bookings?q=${b.booking.code}`}
+                  href={editHref(b.booking.id)}
+                  scroll={false}
                   className="flex items-center gap-3 rounded-xl bg-surface-2/50 px-3 py-2 text-xs text-muted transition-colors hover:text-foreground"
                 >
                   <span className="tabular-nums">{label(b.startMin)}</span>
@@ -115,16 +160,17 @@ export default function DayGrid({
       )}
 
       <div className="no-scrollbar mt-4 overflow-x-auto">
-        <div className="min-w-max">
-          {/* Мастеруудын толгой — доош гүйлгэхэд наалдаж үлдэнэ. */}
-          <div className="sticky top-0 z-30 flex bg-background/95 backdrop-blur">
-            <div className="sticky left-0 z-10 w-14 shrink-0 bg-background/95 sm:w-16" />
+        {/* `pb-2` — хамгийн доод цагийн шошго хагас нь доош цухуйдаг тул. */}
+        <div className="w-full pb-2" style={{ minWidth }}>
+          {/* Мастеруудын толгой */}
+          <div className="flex bg-background">
+            <div className="sticky left-0 z-10 w-14 shrink-0 bg-background" />
             {columns.map((c) => {
               const total = c.bookings.reduce((sum, b) => sum + b.price, 0);
               return (
                 <div
                   key={c.staff.id}
-                  className="w-[11rem] shrink-0 border-l border-border/60 px-3 py-3 sm:w-[13rem]"
+                  className="min-w-[9rem] flex-1 border-l border-border/60 px-3 py-2.5"
                 >
                   <div className="flex items-center gap-2">
                     {c.staff.imageUrl ? (
@@ -160,23 +206,23 @@ export default function DayGrid({
           </div>
 
           {/* `relative` — "яг одоо" шугам энэ хайрцгийг дагаж байрлана. */}
-          <div className="relative flex">
+          <FitHeight
+            className="relative flex"
+            minHeight={totalMin * MIN_PX_PER_MIN}
+            reserve={112}
+          >
             {/* Хажуу тийш гүйлгэхэд цагийн багана байрандаа үлдэнэ — эс тэгвэл
-                утсан дээр баруун тийш гүйлгэхэд аль цаг болох нь мэдэгдэхгүй. */}
-            <div
-              className="sticky left-0 z-10 w-14 shrink-0 bg-background/95 sm:w-16"
-              style={{ height }}
-            >
+                утсан дээр баруун тийш гүйлгэхэд аль цаг болох нь мэдэгдэхгүй.
+                Тор шахагдсан тул зөвхөн бүтэн цагийг бичнэ. */}
+            <div className="sticky left-0 z-10 w-14 shrink-0 bg-background">
               {Array.from({ length: lines + 1 }, (_, i) => {
                 const min = openMin + i * stepMin;
-                const onHour = min % 60 === 0;
+                if (min % 60 !== 0 || min > openMin + totalMin) return null;
                 return (
                   <span
                     key={min}
-                    style={{ top: (min - openMin) * PX_PER_MIN }}
-                    className={`absolute right-2 -translate-y-1/2 tabular-nums ${
-                      onHour ? "text-xs text-muted" : "text-[10px] text-muted/50"
-                    }`}
+                    style={{ top: pct(min - openMin) }}
+                    className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-muted"
                   >
                     {label(min)}
                   </span>
@@ -184,9 +230,9 @@ export default function DayGrid({
               })}
 
               {/* Одоогийн цагийн шошго */}
-              {nowMin !== undefined && nowMin >= openMin && nowMin <= closeMin && (
+              {showNow && (
                 <span
-                  style={{ top: (nowMin - openMin) * PX_PER_MIN }}
+                  style={{ top: pct(nowMin - openMin) }}
                   className="absolute right-1 z-20 -translate-y-1/2 rounded-md bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white"
                 >
                   {label(nowMin)}
@@ -194,78 +240,158 @@ export default function DayGrid({
               )}
             </div>
 
-            {columns.map((c) => (
-              <div
-                key={c.staff.id}
-                className="relative w-[11rem] shrink-0 border-l border-border/60 sm:w-[13rem]"
-                style={{ height }}
-              >
-                {/* Хэвтээ шугамууд */}
-                {Array.from({ length: lines }, (_, i) => (
-                  <span
-                    key={i}
-                    style={{ top: i * stepMin * PX_PER_MIN }}
-                    className={`absolute inset-x-0 border-t ${
-                      (openMin + i * stepMin) % 60 === 0
-                        ? "border-border/70"
-                        : "border-border/35"
-                    }`}
-                  />
-                ))}
+            {columns.map((c) => {
+              const colors = colorsFor(c.bookings);
+              return (
+                <div
+                  key={c.staff.id}
+                  className="relative min-w-[9rem] flex-1 border-l border-border/60"
+                >
+                  {/* Хэвтээ шугамууд */}
+                  {Array.from({ length: lines }, (_, i) => (
+                    <span
+                      key={i}
+                      style={{ top: pct(i * stepMin) }}
+                      className={`absolute inset-x-0 border-t ${
+                        (openMin + i * stepMin) % 60 === 0
+                          ? "border-border/70"
+                          : "border-dashed border-border/40"
+                      }`}
+                    />
+                  ))}
 
-                {c.bookings.map((b) => {
-                  const top = (b.startMin - openMin) * PX_PER_MIN;
-                  const blockHeight = Math.max(b.durationMin * PX_PER_MIN, 30);
-                  const style =
-                    STATUS_STYLES[b.booking.status] ?? STATUS_STYLES.confirmed;
-                  const endMin = b.startMin + b.durationMin;
-                  return (
-                    <Link
-                      key={b.booking.id}
-                      href={`/admin/bookings?q=${b.booking.code}`}
-                      style={{ top, height: blockHeight }}
-                      title={`${b.booking.customerName} · ${label(b.startMin)}–${label(endMin)} · ${b.itemLabel} · ${formatPrice(b.price)}`}
-                      className={`absolute inset-x-1 flex flex-col overflow-hidden rounded-lg pl-3 pr-2 py-1.5 text-left shadow-[0_1px_2px_rgba(46,39,35,0.06)] transition-transform hover:z-10 hover:scale-[1.02] ${style.block}`}
-                    >
-                      {/* Зүүн талын өнгөт зурвас — төлөвийг нэг харцаар. */}
-                      <span
-                        className={`absolute inset-y-0 left-0 w-1 rounded-l-lg ${style.bar}`}
-                      />
-                      <span className="block truncate text-[10px] tabular-nums opacity-70">
-                        {label(b.startMin)}–{label(endMin)}
-                      </span>
-                      <span className="block truncate text-[13px] font-semibold">
-                        {b.booking.customerName}
-                      </span>
-                      {blockHeight >= 62 && (
-                        <span className="block truncate text-[11px] opacity-75">
-                          {b.itemLabel}
-                        </span>
-                      )}
-                      {blockHeight >= 46 && b.price > 0 && (
-                        <span className="mt-auto block truncate text-right text-[11px] font-semibold tabular-nums">
-                          {formatPrice(b.price)}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            ))}
+                  {c.bookings.map((b) => {
+                    const color = colors.get(b.booking.id) ?? PALETTE[0];
+                    const endMin = b.startMin + b.durationMin;
+                    const status = b.booking.status;
+                    return (
+                      <div
+                        key={b.booking.id}
+                        style={{
+                          top: pct(b.startMin - openMin),
+                          height: pct(b.durationMin),
+                        }}
+                        title={`${b.booking.customerName} · ${label(b.startMin)}–${label(endMin)} · ${b.itemLabel} · ${formatPrice(b.price)}${
+                          b.booking.groupId ? " · хамт захиалсан" : ""
+                        }`}
+                        className={`cal-block absolute inset-x-1 min-h-[18px] overflow-hidden rounded-lg text-left shadow-[0_1px_2px_rgba(46,39,35,0.08)] transition-transform hover:z-10 hover:scale-[1.02] ${color.block} ${
+                          status === "no_show" ? "opacity-50" : ""
+                        }`}
+                      >
+                        {/* Зүүн талын өнгөт зурвас */}
+                        <span
+                          className={`absolute inset-y-0 left-0 w-1 rounded-l-lg ${color.bar}`}
+                        />
+
+                        {/* Блок бүхэлдээ засах хуудас руу. Холбоос дотор товч
+                            байж болохгүй тул холбоос нь доод давхаргад хоосон,
+                            бичвэр нь дээр нь `pointer-events-none` — дарахад
+                            холбоос руу нэвтэрнэ, харин од, check нь тусдаа товч. */}
+                        <Link
+                          href={editHref(b.booking.id)}
+                          scroll={false}
+                          aria-label={`${b.booking.customerName} — засах`}
+                          className="absolute inset-0"
+                        />
+
+                        {/* Блокны өндрөөс хамаарч аль мөр харагдахыг
+                            globals.css-ийн `.cal-block` шийднэ. */}
+                        <div className="cal-body pointer-events-none relative flex h-full flex-col">
+                          <span className="cal-time truncate pr-4 text-[10px] tabular-nums opacity-70">
+                            {label(b.startMin)}–{label(endMin)}
+                            {b.booking.groupId && " · 👥"}
+                          </span>
+                          <span className="flex min-w-0 items-center pr-4">
+                            {/* ★ өнгөтэй — тогтмол мастер, ☆ — энгийн. */}
+                            <StarToggle
+                              id={b.booking.id}
+                              locked={Boolean(b.booking.staffLocked)}
+                              size="sm"
+                            />
+                            <span
+                              className={`truncate text-[12px] font-semibold leading-tight ${
+                                status === "no_show" ? "line-through" : ""
+                              }`}
+                            >
+                              {b.booking.customerName}
+                            </span>
+                          </span>
+                          <span className="cal-item truncate text-[11px] opacity-75">
+                            {b.itemLabel}
+                          </span>
+                          {b.price > 0 && (
+                            <span className="cal-price mt-auto truncate text-right text-[11px] font-semibold tabular-nums">
+                              {formatPrice(b.price)}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Check: баталгаажсан ↔ хүлээгдэж буй. Дууссан бол
+                            ногоон тэмдэг, ирээгүй бол бүдэг — check байхгүй. */}
+                        {(status === "pending" || status === "confirmed") && (
+                          <ConfirmCheck
+                            id={b.booking.id}
+                            confirmed={status === "confirmed"}
+                          />
+                        )}
+                        {status === "done" && (
+                          <span
+                            aria-label="Дууссан"
+                            className="absolute right-1 top-1 flex h-4 items-center justify-center rounded-full bg-sky-600 px-1 text-[8px] font-bold leading-none tracking-[-0.15em] text-white"
+                          >
+                            ✓✓
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
 
             {/* "Яг одоо" шугам — бүх баганыг дамнана. */}
-            {nowMin !== undefined && nowMin >= openMin && nowMin <= closeMin && (
+            {showNow && (
               <span
-                style={{ top: (nowMin - openMin) * PX_PER_MIN }}
-                className="pointer-events-none absolute left-14 right-0 z-20 h-px bg-rose-500 sm:left-16"
+                style={{ top: pct(nowMin - openMin) }}
+                className="pointer-events-none absolute left-14 right-0 z-20 h-px bg-rose-500"
               />
             )}
-          </div>
+          </FitHeight>
         </div>
       </div>
 
+      {/* Төлөвийн тайлбар — өнгө нь захиалга бүрийг ялгана, тэмдэг нь төлөвийг. */}
+      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted">
+        <span className="flex items-center gap-1.5">
+          <span className="flex h-3 w-3 items-center justify-center rounded-[3px] bg-emerald-600 text-[8px] font-bold text-white">
+            ✓
+          </span>
+          Баталгаажсан
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-[3px] bg-white ring-2 ring-inset ring-rose-400" />
+          Баталгаажаагүй
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="flex h-3 items-center justify-center rounded-full bg-sky-600 px-0.5 text-[7px] font-bold tracking-[-0.15em] text-white">
+            ✓✓
+          </span>
+          Дууссан
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="text-sm leading-none text-amber-500">★</span>
+          Тогтмол мастер
+          <span className="opacity-60">(☆ дарж асаана)</span>
+        </span>
+        <span className="flex items-center gap-1.5">👥 Хамт захиалсан</span>
+        <span className="flex items-center gap-1.5">
+          <span className="line-through opacity-60">Нэр</span>
+          Ирээгүй
+        </span>
+      </div>
+
       {/* Өдрийн мөнгөн дүн — Fresha-гийн адил доод мөрөнд. */}
-      <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-border/60 pt-3 text-sm">
+      <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-border/60 pt-3 text-sm">
         <span className="text-muted">
           Өдрийн нийт{" "}
           <b className="font-display text-lg font-semibold text-foreground">

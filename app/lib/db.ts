@@ -5,6 +5,7 @@ import type {
   Booking,
   BookingDraft,
   BookingStatus,
+  DraftItem,
   Location,
   Payment,
   PaymentStatus,
@@ -174,6 +175,9 @@ const bookingFromRow = (r: any): Booking => ({
   depositPaid: r.deposit_paid ?? 0,
   extraCharge: r.extra_charge ?? 0,
   createdAt: r.created_at,
+  // 008 migration хийгээгүй санд багана байхгүй — ганц захиалга гэж үзнэ.
+  groupId: r.group_id || undefined,
+  staffLocked: r.staff_locked ?? false,
 });
 
 const reviewFromRow = (r: any): Review => ({
@@ -543,9 +547,10 @@ const CODE_ATTEMPTS = 5;
 export async function createBooking(
   input: Omit<
     Booking,
-    "id" | "createdAt" | "status" | "code" | "depositPaid" | "extraCharge"
+    "id" | "createdAt" | "status" | "code" | "depositPaid" | "extraCharge" | "groupId"
   > & {
     status?: Booking["status"];
+    groupId?: string;
   },
 ): Promise<Booking> {
   const id = `bkg-${randomUUID().slice(0, 8)}`;
@@ -565,15 +570,27 @@ export async function createBooking(
     package_id: input.packageId ?? null,
     created_at: createdAt,
   };
+  // Бүлгийн баганыг зөвхөн хэрэгтэй үед бичнэ — 008 migration хийгээгүй санд
+  // ганц үйлчилгээтэй захиалга хэвийн ажилласаар байна.
+  let groupId = input.groupId;
 
   // Код санамсаргүй үүсдэг тул ховор ч давхцаж болно — тэр тохиолдолд шинэ
   // код гаргаад дахин оролдоно. Цаг давхцсаныг л SLOT_TAKEN гэж дамжуулна.
   for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
     const code = newBookingCode();
-    const { error } = await db().from("bookings").insert({ ...row, code });
+    const { error } = await db()
+      .from("bookings")
+      .insert({ ...row, code, ...(groupId && { group_id: groupId }) });
     // Шинэ захиалгад төлбөр хараахан бүртгэгдээгүй.
     if (!error)
-      return { ...input, id, status, code, createdAt, depositPaid: 0, extraCharge: 0 };
+      return { ...input, groupId, id, status, code, createdAt, depositPaid: 0, extraCharge: 0 };
+    if (groupId && error.message.includes("group_id")) {
+      // Багана алга — захиалгыг холбоосгүйгээр ч гэсэн үүсгэнэ.
+      console.warn("bookings.group_id алга: supabase/migrations/008-booking-group.sql-ыг ажиллуулна уу.");
+      groupId = undefined;
+      attempt--;
+      continue;
+    }
     if (error.code !== "23505") throw new Error(error.message);
 
     const conflict = `${error.message} ${error.details ?? ""}`;
@@ -622,6 +639,63 @@ export async function updateBookingStatus(
 }
 
 /**
+ * Захиалгыг засна — үйлчилгээ, мастер (өөр хүн рүү шилжүүлэх), огноо, цаг,
+ * үйлчлүүлэгчийн мэдээлэл. Давхцлыг дуудагч тал шалгасан байх ёстой; яг ижил
+ * цагт давхцвал индекс няцааж SLOT_TAKEN болно.
+ */
+export async function updateBooking(
+  id: string,
+  patch: Pick<
+    Booking,
+    "serviceId" | "staffId" | "date" | "time" | "customerName" | "customerPhone" | "note"
+  > & { packageId?: string; locationId?: string },
+): Promise<void> {
+  const { error } = await db()
+    .from("bookings")
+    .update({
+      service_id: patch.serviceId,
+      package_id: patch.packageId ?? null,
+      staff_id: patch.staffId,
+      date: patch.date,
+      time: patch.time,
+      customer_name: patch.customerName,
+      customer_phone: patch.customerPhone,
+      note: patch.note,
+      location_id: patch.locationId ?? null,
+    })
+    .eq("id", id);
+  if (error) {
+    if (error.code === "23505") throw new Error("SLOT_TAKEN");
+    throw new Error(error.message);
+  }
+}
+
+/** ⭐ тэмдэглэгээ — үйлчлүүлэгчийг энэ мастерт "түгжинэ". */
+export async function updateBookingStaffLocked(id: string, locked: boolean): Promise<void> {
+  const { error } = await db().from("bookings").update({ staff_locked: locked }).eq("id", id);
+  if (error) {
+    if (error.message.includes("staff_locked")) {
+      throw new Error(
+        "Мэдээллийн санд ⭐ багана алга. supabase/migrations/009-booking-staff-lock.sql-ыг ажиллуулна уу.",
+      );
+    }
+    throw new Error(error.message);
+  }
+}
+
+/** Хамт захиалсан бусад үйлчилгээнүүд (өөрийг нь оруулаад). */
+export async function getBookingGroup(groupId: string): Promise<Booking[]> {
+  const { data, error } = await db()
+    .from("bookings")
+    .select("*")
+    .eq("group_id", groupId)
+    .order("time");
+  // Багана байхгүй (migration хийгээгүй) бол бүлэг гэж байхгүй.
+  if (error) return [];
+  return (data ?? []).map(bookingFromRow);
+}
+
+/**
  * Захиалгын төлбөрийн дүнг шинэчилнэ (төлсөн урьдчилгаа, нэмэлт төлбөр).
  * Багана нь хуучин мэдээллийн санд байхгүй бол ойлгомжтой алдаа буцаана.
  */
@@ -653,6 +727,58 @@ export async function deleteBooking(id: string): Promise<void> {
 /* ---------------- Availability ---------------- */
 
 /**
+ * Мастерын тухайн өдрийн захиалгууд [эхлэх, дуусах) минутаар. Цуцлагдсан нь
+ * цаг эзлэхгүй. `excludeId` — засаж буй захиалга өөртэйгөө давхцахгүй.
+ */
+async function bookedIntervals(
+  staffId: string,
+  date: string,
+  opts?: { excludeId?: string; fallbackMin?: number },
+): Promise<(readonly [number, number])[]> {
+  let q = db()
+    .from("bookings")
+    .select("id, time, service_id, package_id")
+    .eq("staff_id", staffId)
+    .eq("date", date)
+    .neq("status", "cancelled");
+  if (opts?.excludeId) q = q.neq("id", opts.excludeId);
+  const { data: rows } = await q;
+
+  const [services, packages] = await Promise.all([getServices(), getPackages()]);
+  const packageDuration = (pkg: ServicePackage) =>
+    pkg.serviceIds.reduce(
+      (sum, id) => sum + (services.find((s) => s.id === id)?.durationMin ?? 0),
+      0,
+    );
+  return (rows ?? []).map((b) => {
+    const start = toMinutes(b.time);
+    // Багц захиалгын хугацаа = багтах үйлчилгээнүүдийн нийлбэр.
+    const pkg = b.package_id ? packages.find((p) => p.id === b.package_id) : undefined;
+    const svc = services.find((s) => s.id === b.service_id);
+    const dur = pkg ? packageDuration(pkg) : (svc?.durationMin ?? opts?.fallbackMin ?? 30);
+    return [start, start + Math.max(5, dur)] as const;
+  });
+}
+
+/**
+ * Мастер тухайн хугацаанд өөр захиалгатай давхцаж байна уу. Админ захиалга
+ * засахад (өөр мастер руу шилжүүлэх, цаг солих) ажлын цагийг биш, зөвхөн
+ * давхцлыг шалгана.
+ */
+export async function hasBookingConflict(
+  staffId: string,
+  date: string,
+  time: string,
+  durationMin: number,
+  excludeId?: string,
+): Promise<boolean> {
+  const start = toMinutes(time);
+  const end = start + Math.max(5, durationMin);
+  const booked = await bookedIntervals(staffId, date, { excludeId });
+  return booked.some(([bs, be]) => start < be && end > bs);
+}
+
+/**
  * Тухайн ажилтан/өдөр/хугацаанд эхлэх боломжтой цагууд. Үйлчилгээ болон
  * багц хоёулаа үүнийг ашиглана — ялгаа нь зөвхөн үргэлжлэх хугацаа (duration).
  */
@@ -678,29 +804,7 @@ async function computeAvailableSlots(
   const open = toMinutes(hours.openTime);
   const close = toMinutes(hours.closeTime);
   const step = Math.max(5, hours.slotMinutes);
-
-  // Existing bookings for this staff/date as [start, end) minute intervals.
-  const { data: rows } = await db()
-    .from("bookings")
-    .select("time, service_id, package_id, status")
-    .eq("staff_id", staffId)
-    .eq("date", date)
-    .neq("status", "cancelled");
-
-  const [services, packages] = await Promise.all([getServices(), getPackages()]);
-  const packageDuration = (pkg: ServicePackage) =>
-    pkg.serviceIds.reduce(
-      (sum, id) => sum + (services.find((s) => s.id === id)?.durationMin ?? 0),
-      0,
-    );
-  const booked = (rows ?? []).map((b) => {
-    const start = toMinutes(b.time);
-    // Багц захиалгын хугацаа = багтах үйлчилгээнүүдийн нийлбэр.
-    const pkg = b.package_id ? packages.find((p) => p.id === b.package_id) : undefined;
-    const svc = services.find((s) => s.id === b.service_id);
-    const dur = pkg ? packageDuration(pkg) : (svc?.durationMin ?? step);
-    return [start, start + Math.max(5, dur)] as const;
-  });
+  const booked = await bookedIntervals(staffId, date, { fallbackMin: step });
 
   // Салоны цагаар тооцно — сервер UTC дээр ажиллаж байсан ч өнгөрсөн цаг
   // "сул" гэж харагдахгүй.
@@ -724,6 +828,29 @@ export async function getAvailableSlots(
 ): Promise<string[]> {
   const service = await getService(serviceId);
   return computeAvailableSlots(staffId, date, service?.durationMin ?? 0, locationId);
+}
+
+/**
+ * Хэд хэдэн үйлчилгээг нэг дор захиалахад бүгдэд нь тохирох эхлэх цагууд.
+ * Мастер бүрийн ачааллыг (нэг мастерт хоёр үйлчилгээ бол нийлбэр хугацаа)
+ * тусад нь тооцоод, огтлолцлыг нь буцаана — бүх мастер зэрэг сул байх цаг.
+ */
+export async function getMultiAvailableSlots(
+  items: DraftItem[],
+  date: string,
+  locationId?: string,
+): Promise<string[]> {
+  if (items.length === 0) return [];
+  const services = await getServices();
+  const perStaff = new Map<string, number>();
+  for (const i of items) {
+    const dur = services.find((s) => s.id === i.serviceId)?.durationMin ?? 0;
+    perStaff.set(i.staffId, (perStaff.get(i.staffId) ?? 0) + dur);
+  }
+  const lists = await Promise.all(
+    [...perStaff].map(([staffId, dur]) => computeAvailableSlots(staffId, date, dur, locationId)),
+  );
+  return lists.reduce((acc, list) => acc.filter((t) => list.includes(t)));
 }
 
 /** Багцаар захиалахад — нийт хугацааг багцын үйлчилгээнүүдээс тооцно. */

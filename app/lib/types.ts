@@ -74,6 +74,10 @@ export type Booking = {
   depositPaid: number; // урьдчилж төлсөн дүн ₮ (админ гараар бүртгэнэ)
   extraCharge: number; // явцад нэмэгдсэн төлбөр ₮
   createdAt: string; // ISO
+  /** Нэг үйлчлүүлэгч нэг дор хэд хэдэн үйлчилгээ захиалсан бол бүгд ижил id-тай. */
+  groupId?: string;
+  /** ⭐ — үйлчлүүлэгч зөвхөн энэ мастер дээр үйлчлүүлнэ; өөр мастер руу шилжүүлэхгүй. */
+  staffLocked?: boolean;
 };
 
 /** Үйлчлүүлэгчид /my хуудсанд буцаах аюулгүй хэлбэр (утас, тэмдэглэлгүй). */
@@ -102,11 +106,20 @@ export type PaymentStatus =
   | "refund_due"
   | "refunded";
 
+/** Нэг захиалгад багтах нэг үйлчилгээ ба түүнийг хийх мастер. */
+export type DraftItem = { serviceId: string; staffId: string };
+
 /** Төлбөр төлөгдтөл захиалга үүсэхгүй тул түүний ноорогийг хадгална. */
 export type BookingDraft = {
+  /** Эхний (эсвэл цорын ганц) үйлчилгээ. Багц бол хоосон. */
   serviceId: string;
   packageId?: string;
   staffId: string;
+  /**
+   * Хоёр ба түүнээс олон үйлчилгээ сонгосон үед л бөглөгдөнө (эхнийх нь дээрх
+   * serviceId/staffId-тай ижил). Өөр мастерууд зэрэг, нэг мастер бол дараалан.
+   */
+  items?: DraftItem[];
   date: string;
   time: string;
   customerName: string;

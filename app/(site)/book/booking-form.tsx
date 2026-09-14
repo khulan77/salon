@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { Fragment, useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Location, Service, ServicePackage, Staff } from "@/app/lib/types";
 import {
   bookAction,
-  getAvailableSlotsAction,
+  getMultiAvailableSlotsAction,
   getPackageAvailableSlotsAction,
   startBookingPaymentAction,
   type BookState,
@@ -14,6 +14,7 @@ import {
 import PaymentStep from "./payment-step";
 import { rememberEntry } from "@/app/lib/my-bookings-store";
 import { salonToday } from "@/app/lib/time";
+import { MAX_ITEMS, scheduleItems, totalSpanMin } from "@/app/lib/booking-items";
 import {
   effectivePrice,
   formatDate,
@@ -88,9 +89,16 @@ export default function BookingForm({
   const [locationId, setLocationId] = useState(
     initialLocationId ?? (locations[0]?.id ?? ""),
   );
-  const [serviceId, setServiceId] = useState(initialServiceId ?? "");
+  // Нэг дор хэд хэдэн үйлчилгээ сонгож болно; үйлчилгээ бүр өөрийн мастертай.
+  const [serviceIds, setServiceIds] = useState<string[]>(
+    initialServiceId ? [initialServiceId] : [],
+  );
+  const [staffFor, setStaffFor] = useState<Record<string, string>>(
+    initialServiceId && initialStaffId ? { [initialServiceId]: initialStaffId } : {},
+  );
   const [packageId, setPackageId] = useState(initialPackageId ?? "");
-  const [staffId, setStaffId] = useState(initialStaffId ?? "");
+  // Багцын мастер (багц нэг мастерт оногдоно).
+  const [staffId, setStaffId] = useState(initialPackageId ? (initialStaffId ?? "") : "");
   const [date, setDate] = useState(todayISO());
   const [time, setTime] = useState("");
   const [slots, setSlots] = useState<string[]>([]);
@@ -118,51 +126,61 @@ export default function BookingForm({
     return list;
   }, [date]);
 
-  const service = services.find((s) => s.id === serviceId);
+  const selectedServices = serviceIds
+    .map((id) => services.find((s) => s.id === id))
+    .filter((s): s is Service => Boolean(s));
+  const service = selectedServices[0];
+  const multi = selectedServices.length > 1;
   const selectedPackage = packages.find((p) => p.id === packageId);
   const selectedLocation = locations.find((l) => l.id === locationId);
   const packageInfo = selectedPackage
     ? packageTotals(selectedPackage, services)
     : null;
+  const durationOf = (id: string) => services.find((s) => s.id === id)?.durationMin ?? 0;
+  const staffName = (id: string) => staff.find((m) => m.id === id)?.name ?? "—";
 
-  // Салбар (олон бол) болон үйлчилгээнд тохирох мастеруудыг шүүнэ. Багц сонгосон
-  // үед салбарын бүх мастер боломжтой. Салбаргүй мастер бүх салбарт үзэгдэнэ.
-  const availableStaff = useMemo(
-    () =>
-      staff.filter((m) => {
-        const okBranch = !multiBranch || !m.locationId || m.locationId === locationId;
-        const okService =
-          !!packageId ||
-          m.serviceIds.length === 0 ||
-          !serviceId ||
-          m.serviceIds.includes(serviceId);
-        return okBranch && okService;
-      }),
-    [staff, serviceId, packageId, locationId, multiBranch],
+  // Үйлчилгээ бүр ба түүнийг хийх мастер. Мастер сонгоогүй бол хоосон.
+  const items = useMemo(
+    () => serviceIds.map((id) => ({ serviceId: id, staffId: staffFor[id] ?? "" })),
+    [serviceIds, staffFor],
   );
+  const itemsReady = items.length > 0 && items.every((i) => i.staffId);
+
+  // Салбар (олон бол) болон үйлчилгээнд тохирох мастерууд. Салбаргүй мастер
+  // бүх салбарт үзэгдэнэ. `serviceId` өгөөгүй бол (багц) салбарын бүх мастер.
+  const staffOptions = (serviceId?: string) =>
+    staff.filter((m) => {
+      const okBranch = !multiBranch || !m.locationId || m.locationId === locationId;
+      const okService =
+        !serviceId || m.serviceIds.length === 0 || m.serviceIds.includes(serviceId);
+      return okBranch && okService;
+    });
   const selectedStaff = staff.find((s) => s.id === staffId);
+  // Нэг мастерт хоёр үйлчилгээ оногдвол дараалан хийгдэнэ.
+  const sharesStaff = new Set(items.map((i) => i.staffId)).size < items.length;
 
   // If arriving with a prefilled selection, skip ahead to the right step.
   useEffect(() => {
     if (initialPackageId) setStep(stepKeys.indexOf("staff"));
     else if (initialServiceId && initialStaffId) setStep(stepKeys.indexOf("datetime"));
-    else if (initialServiceId || initialStaffId) setStep(stepKeys.indexOf("staff"));
+    else if (initialServiceId) setStep(stepKeys.indexOf("staff"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load available slots whenever the selection or date changes.
   useEffect(() => {
-    if (!staffId || !date || (!serviceId && !packageId)) {
+    if (!date || (packageId ? !staffId : !itemsReady)) {
       setSlots([]);
       return;
     }
     let active = true;
     setLoadingSlots(true);
     // Салбарыг дамжуулна — салбаргүй (хөвөгч) мастерын ажлын цагийг
-    // үйлчлүүлэгчийн сонгосон салбарын хуваарийн дагуу тооцно.
+    // үйлчлүүлэгчийн сонгосон салбарын хуваарийн дагуу тооцно. Олон
+    // үйлчилгээтэй бол бүх мастер зэрэг сул байх цагууд л гарна.
     const req = packageId
       ? getPackageAvailableSlotsAction(packageId, staffId, date, locationId)
-      : getAvailableSlotsAction(serviceId, staffId, date, locationId);
+      : getMultiAvailableSlotsAction(items, date, locationId);
     req
       .then((s) => {
         if (active) setSlots(s);
@@ -173,39 +191,49 @@ export default function BookingForm({
     return () => {
       active = false;
     };
-  }, [serviceId, packageId, staffId, date, locationId]);
+  }, [items, itemsReady, packageId, staffId, date, locationId]);
 
   // Reset time if it is no longer available.
   useEffect(() => {
     if (time && !slots.includes(time)) setTime("");
   }, [slots, time]);
 
-  // Захиалга амжилттай болмогц кодыг энэ төхөөрөмжид сануулна.
+  // Захиалга амжилттай болмогц кодыг (олон бол бүгдийг) энэ төхөөрөмжид сануулна.
   useEffect(() => {
     if (state.status === "success") {
-      rememberEntry({ code: state.summary.code, phone: state.summary.phone });
+      for (const code of state.summary.codes ?? [state.summary.code]) {
+        rememberEntry({ code, phone: state.summary.phone });
+      }
     }
   }, [state]);
 
   const canNext =
     (stepKey === "branch" && !!locationId) ||
-    (stepKey === "service" && (!!serviceId || !!packageId)) ||
-    (stepKey === "staff" && !!staffId) ||
+    (stepKey === "service" && (serviceIds.length > 0 || !!packageId)) ||
+    (stepKey === "staff" && (packageId ? !!staffId : itemsReady)) ||
     (stepKey === "datetime" && !!date && !!time) ||
     stepKey === "contact";
 
-  // Багц сонгоход дан үйлчилгээг цэвэрлэнэ (ба эсрэгээр).
-  const chooseService = (id: string) => {
-    setServiceId(id);
+  // Үйлчилгээг сонгох/болиулах. Багц сонгосон байвал цэвэрлэнэ (ба эсрэгээр).
+  const toggleService = (id: string) => {
     setPackageId("");
-    if (staffId) {
-      const m = staff.find((x) => x.id === staffId);
-      if (m && m.serviceIds.length > 0 && !m.serviceIds.includes(id)) setStaffId("");
+    setTime("");
+    if (serviceIds.includes(id)) {
+      setServiceIds(serviceIds.filter((x) => x !== id));
+      return;
+    }
+    if (serviceIds.length >= MAX_ITEMS) return;
+    setServiceIds([...serviceIds, id]);
+    // Мастерын хуудаснаас ирсэн бол тэр мастерыг урьдчилж онооно.
+    const preferred = staff.find((m) => m.id === initialStaffId);
+    if (preferred && !staffFor[id] && staffOptions(id).includes(preferred)) {
+      setStaffFor({ ...staffFor, [id]: preferred.id });
     }
   };
   const choosePackage = (id: string) => {
     setPackageId(id);
-    setServiceId("");
+    setServiceIds([]);
+    setTime("");
   };
 
   // Урьдчилгаа: нэхэмжлэх үүссэн бол төлбөрийн дэлгэц рүү шилжинэ. Хаясан
@@ -237,10 +265,19 @@ export default function BookingForm({
         </p>
 
         <div className="mx-auto mt-7 max-w-sm rounded-3xl bg-primary-soft/60 p-6">
-          <p className="text-xs font-medium text-muted">Таны захиалгын код</p>
-          <p className="mt-1 font-mono text-3xl font-semibold tracking-[0.3em] text-primary">
-            {state.summary.code}
+          <p className="text-xs font-medium text-muted">
+            {(state.summary.codes?.length ?? 1) > 1
+              ? "Үйлчилгээ бүрийн код"
+              : "Таны захиалгын код"}
           </p>
+          {(state.summary.codes ?? [state.summary.code]).map((code) => (
+            <p
+              key={code}
+              className="mt-1 font-mono text-3xl font-semibold tracking-[0.3em] text-primary"
+            >
+              {code}
+            </p>
+          ))}
           <p className="mt-3 text-xs leading-5 text-muted">
             Энэ кодоор захиалгаа хянах, цуцлах боломжтой. Хадгалж авна уу.
           </p>
@@ -411,81 +448,100 @@ export default function BookingForm({
             <h2 className="font-display text-xl font-semibold text-foreground">
               {packages.length > 0 ? "Эсвэл дан үйлчилгээ" : "Үйлчилгээ сонгох"}
             </h2>
+            <p className="mt-1 text-sm text-muted">
+              {MAX_ITEMS} хүртэл үйлчилгээ зэрэг сонгож болно — өөр мастерууд нэг
+              дор хийвэл цаг хэмнэнэ.
+            </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {services.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => chooseService(s.id)}
-                  className={`flex min-h-16 items-center gap-3 rounded-2xl p-4 text-left transition-colors ${
-                    serviceId === s.id
-                      ? "bg-primary-soft ring-2 ring-primary"
-                      : "bg-surface-2/60 hover:bg-surface-2"
-                  }`}
-                >
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-xl">
-                    {s.emoji}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-foreground">{s.name}</span>
-                    <span className="block text-xs text-muted">
-                      {hasSale(s) && <s className="mr-1">{formatPrice(s.price)}</s>}
-                      <span className={hasSale(s) ? "font-semibold text-rose-600" : ""}>
-                        {formatPrice(effectivePrice(s))}
-                      </span>{" "}
-                      · {formatDuration(s.durationMin)}
+              {services.map((s) => {
+                const on = serviceIds.includes(s.id);
+                const full = !on && serviceIds.length >= MAX_ITEMS;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => toggleService(s.id)}
+                    disabled={full}
+                    aria-pressed={on}
+                    className={`flex min-h-16 items-center gap-3 rounded-2xl p-4 text-left transition-colors disabled:opacity-40 ${
+                      on
+                        ? "bg-primary-soft ring-2 ring-primary"
+                        : "bg-surface-2/60 hover:bg-surface-2"
+                    }`}
+                  >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface text-xl">
+                      {s.emoji}
                     </span>
-                  </span>
-                </button>
-              ))}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-foreground">{s.name}</span>
+                      <span className="block text-xs text-muted">
+                        {hasSale(s) && <s className="mr-1">{formatPrice(s.price)}</s>}
+                        <span className={hasSale(s) ? "font-semibold text-rose-600" : ""}>
+                          {formatPrice(effectivePrice(s))}
+                        </span>{" "}
+                        · {formatDuration(s.durationMin)}
+                      </span>
+                    </span>
+                    {/* Олон сонгож болохыг check-ээр илтгэнэ. */}
+                    <span
+                      aria-hidden
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                        on ? "bg-primary text-white" : "bg-surface text-transparent"
+                      }`}
+                    >
+                      ✓
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Step: staff */}
+        {/* Step: staff — багц бол нэг мастер, үйлчилгээ бүрд тус тусын мастер. */}
         {stepKey === "staff" && (
           <div>
             <h2 className="font-display text-xl font-semibold text-foreground">
               Мастер сонгох
             </h2>
-            {availableStaff.length === 0 ? (
-              <p className="mt-4 text-sm text-muted">
-                {multiBranch
-                  ? "Энэ салбарт тохирох мастер алга байна. Өөр салбар сонгож үзнэ үү."
-                  : "Боломжтой мастер алга байна."}
+            {multi && (
+              <p className="mt-1 text-sm text-muted">
+                Үйлчилгээ бүрд мастер сонгоно. Өөр мастер сонговол зэрэг хийнэ, нэг
+                мастер бол дараалан.
               </p>
+            )}
+            {packageId ? (
+              <StaffOptions
+                list={staffOptions()}
+                selected={staffId}
+                onPick={setStaffId}
+                multiBranch={multiBranch}
+              />
             ) : (
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                {availableStaff.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setStaffId(m.id)}
-                    className={`flex min-h-16 items-center gap-3 rounded-2xl p-4 text-left transition-colors ${
-                      staffId === m.id
-                        ? "bg-primary-soft ring-2 ring-primary"
-                        : "bg-surface-2/60 hover:bg-surface-2"
-                    }`}
-                  >
-                    {m.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={m.imageUrl}
-                        alt=""
-                        className="h-11 w-11 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary-soft to-surface-2 text-xl">
-                        {m.emoji}
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium text-foreground">{m.name}</span>
-                      <span className="block truncate text-xs text-muted">{m.title}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
+              selectedServices.map((s) => (
+                <section key={s.id} className={multi ? "mt-6" : ""}>
+                  {multi && (
+                    <p className="text-sm font-medium text-foreground">
+                      {s.emoji} {s.name}
+                    </p>
+                  )}
+                  <StaffOptions
+                    list={staffOptions(s.id)}
+                    selected={staffFor[s.id] ?? ""}
+                    onPick={(id) => {
+                      setStaffFor({ ...staffFor, [s.id]: id });
+                      setTime("");
+                    }}
+                    multiBranch={multiBranch}
+                    compact={multi}
+                  />
+                </section>
+              ))
+            )}
+            {multi && itemsReady && sharesStaff && (
+              <p className="mt-4 rounded-xl bg-surface-2 px-4 py-3 text-sm text-muted">
+                Нэг мастерт оногдсон үйлчилгээнүүд дараалан хийгдэнэ.
+              </p>
             )}
           </div>
         )}
@@ -499,6 +555,12 @@ export default function BookingForm({
             {packageInfo && packageInfo.durationMin > 0 && (
               <p className="mt-2 text-sm text-muted">
                 Багцын нийт үргэлжлэх хугацаа: {formatDuration(packageInfo.durationMin)}
+              </p>
+            )}
+            {multi && (
+              <p className="mt-2 text-sm text-muted">
+                Бүх мастер зэрэг сул байх цагууд · нийт{" "}
+                {formatDuration(totalSpanMin(items, durationOf))}
               </p>
             )}
             <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -581,6 +643,22 @@ export default function BookingForm({
                 ))}
               </div>
             )}
+
+            {/* Олон үйлчилгээтэй бол хэн хэдэнд эхлэхийг урьдчилж харуулна. */}
+            {multi && time && (
+              <ul className="mt-4 space-y-1.5 rounded-2xl bg-surface-2/60 p-4 text-sm">
+                {scheduleItems(items, time, durationOf).map((p) => (
+                  <li key={p.serviceId} className="flex justify-between gap-3">
+                    <span className="truncate text-foreground">
+                      {services.find((s) => s.id === p.serviceId)?.name}
+                    </span>
+                    <span className="shrink-0 text-muted">
+                      {staffName(p.staffId)} · <b className="text-foreground">{p.time}</b>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 
@@ -591,9 +669,22 @@ export default function BookingForm({
               Холбоо барих мэдээлэл
             </h2>
 
-            <input type="hidden" name="serviceId" value={serviceId} />
+            {/* Үйлчилгээ бүрд serviceId + staffId хос дараалан — сервер
+                i дэхийг нь хооронд нь холбож уншина. */}
+            {packageId ? (
+              <>
+                <input type="hidden" name="serviceId" value="" />
+                <input type="hidden" name="staffId" value={staffId} />
+              </>
+            ) : (
+              items.map((i) => (
+                <Fragment key={i.serviceId}>
+                  <input type="hidden" name="serviceId" value={i.serviceId} />
+                  <input type="hidden" name="staffId" value={i.staffId} />
+                </Fragment>
+              ))
+            )}
             <input type="hidden" name="packageId" value={packageId} />
-            <input type="hidden" name="staffId" value={staffId} />
             <input type="hidden" name="locationId" value={locationId} />
             <input type="hidden" name="date" value={date} />
             <input type="hidden" name="time" value={time} />
@@ -637,18 +728,53 @@ export default function BookingForm({
                   value={selectedLocation?.name || selectedLocation?.address || "—"}
                 />
               )}
-              <Row
-                label={selectedPackage ? "Багц" : "Үйлчилгээ"}
-                value={
-                  selectedPackage
-                    ? `${selectedPackage.emoji} ${selectedPackage.name}`
-                    : service?.name ?? "—"
-                }
-              />
-              <Row label="Мастер" value={selectedStaff?.name ?? "—"} />
+              {multi ? (
+                // Үйлчилгээ бүр: хэн, хэдэн цагт.
+                scheduleItems(items, time || "00:00", durationOf).map((p) => (
+                  <Row
+                    key={p.serviceId}
+                    label={services.find((s) => s.id === p.serviceId)?.name ?? "—"}
+                    value={`${staffName(p.staffId)}${time ? ` · ${p.time}` : ""}`}
+                  />
+                ))
+              ) : (
+                <>
+                  <Row
+                    label={selectedPackage ? "Багц" : "Үйлчилгээ"}
+                    value={
+                      selectedPackage
+                        ? `${selectedPackage.emoji} ${selectedPackage.name}`
+                        : service?.name ?? "—"
+                    }
+                  />
+                  <Row
+                    label="Мастер"
+                    value={
+                      selectedPackage
+                        ? (selectedStaff?.name ?? "—")
+                        : staffName(items[0]?.staffId ?? "")
+                    }
+                  />
+                </>
+              )}
               <Row label="Огноо" value={formatDate(date)} />
-              <Row label="Цаг" value={time || "—"} />
-              {(service || selectedPackage) && (
+              <Row label={multi ? "Эхлэх цаг" : "Цаг"} value={time || "—"} />
+              {multi && (
+                <div className="mt-3 flex justify-between border-t border-border pt-3 font-medium text-foreground">
+                  <span>Нийт төлбөр</span>
+                  <span>
+                    {selectedServices.some(hasSale) && (
+                      <s className="mr-2 font-normal text-muted">
+                        {formatPrice(selectedServices.reduce((sum, s) => sum + s.price, 0))}
+                      </s>
+                    )}
+                    {formatPrice(
+                      selectedServices.reduce((sum, s) => sum + effectivePrice(s), 0),
+                    )}
+                  </span>
+                </div>
+              )}
+              {!multi && (service || selectedPackage) && (
                 <div className="mt-3 flex justify-between border-t border-border pt-3 font-medium text-foreground">
                   <span>Нийт төлбөр</span>
                   <span>
@@ -752,6 +878,71 @@ export default function BookingForm({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Мастер сонгох товчнууд. Олон үйлчилгээтэй үед (compact) нягт харагдана. */
+function StaffOptions({
+  list,
+  selected,
+  onPick,
+  multiBranch,
+  compact,
+}: {
+  list: Staff[];
+  selected: string;
+  onPick: (id: string) => void;
+  multiBranch: boolean;
+  compact?: boolean;
+}) {
+  if (list.length === 0) {
+    return (
+      <p className="mt-4 text-sm text-muted">
+        {multiBranch
+          ? "Энэ салбарт тохирох мастер алга байна. Өөр салбар сонгож үзнэ үү."
+          : "Боломжтой мастер алга байна."}
+      </p>
+    );
+  }
+  return (
+    <div className={`grid gap-3 sm:grid-cols-2 ${compact ? "mt-2.5" : "mt-5"}`}>
+      {list.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          onClick={() => onPick(m.id)}
+          aria-pressed={selected === m.id}
+          className={`flex items-center gap-3 rounded-2xl text-left transition-colors ${
+            compact ? "min-h-12 px-3 py-2" : "min-h-16 p-4"
+          } ${
+            selected === m.id
+              ? "bg-primary-soft ring-2 ring-primary"
+              : "bg-surface-2/60 hover:bg-surface-2"
+          }`}
+        >
+          {m.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={m.imageUrl}
+              alt=""
+              className={`rounded-full object-cover ${compact ? "h-9 w-9" : "h-11 w-11"}`}
+            />
+          ) : (
+            <span
+              className={`flex items-center justify-center rounded-full bg-gradient-to-br from-primary-soft to-surface-2 ${
+                compact ? "h-9 w-9 text-lg" : "h-11 w-11 text-xl"
+              }`}
+            >
+              {m.emoji}
+            </span>
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium text-foreground">{m.name}</span>
+            {!compact && <span className="block truncate text-xs text-muted">{m.title}</span>}
+          </span>
+        </button>
+      ))}
     </div>
   );
 }

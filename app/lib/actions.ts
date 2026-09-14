@@ -7,7 +7,6 @@ import { createServerSupabase } from "./supabase/server";
 import { isSupabaseConfigured } from "./supabase/config";
 import { isAdminApiConfigured, upsertStaffAuthUser } from "./supabase/admin";
 import {
-  createBooking,
   createLocation,
   createPackage,
   createPayment,
@@ -23,16 +22,22 @@ import {
   getAvailableSlots,
   getBooking,
   getBookingByCodeAndPhone,
+  getBookingGroup,
   getLocation,
+  getMultiAvailableSlots,
   getPackage,
   getPackageAvailableSlots,
   getPackageDuration,
   getPayment,
   getService,
   getSettings,
+  getStaff,
   getStaffForService,
   getStaffMember,
+  hasBookingConflict,
+  updateBooking,
   updateBookingAmounts,
+  updateBookingStaffLocked,
   updateBookingStatus,
   updatePayment,
   updateLocation,
@@ -53,13 +58,20 @@ import {
   isMockPayment,
   resolveProvider,
 } from "./payment/provider";
-import { draftItemName, finalizePaidBooking } from "./payment/flow";
+import {
+  draftItemName,
+  draftStaffNames,
+  finalizePaidBooking,
+  placeDraftBookings,
+} from "./payment/flow";
+import { draftItems, MAX_ITEMS } from "./booking-items";
 import { effectivePrice, formatDate, normalizeSalePercent } from "./format";
 import { salonInstant } from "./time";
 import type {
   Booking,
   BookingDraft,
   BookingStatus,
+  DraftItem,
   Location,
   MyBooking,
   ServicePackage,
@@ -209,12 +221,38 @@ export async function getPackageAvailableSlotsAction(
   return getPackageAvailableSlots(packageId, staffId, date, locationId);
 }
 
-/** Захиалгын формоос ноорог уншина — үйлчлүүлэгч ба админд ижил. */
+/**
+ * Хэд хэдэн үйлчилгээг нэг дор захиалахад бүх мастер зэрэг сул байх цагууд.
+ * Ганц үйлчилгээнд ч ажиллана (getAvailableSlots-той ижил хариу).
+ */
+export async function getMultiAvailableSlotsAction(
+  items: DraftItem[],
+  date: string,
+  locationId?: string,
+): Promise<string[]> {
+  const clean = items
+    .slice(0, MAX_ITEMS)
+    .filter((i) => i.serviceId && i.staffId)
+    .map((i) => ({ serviceId: String(i.serviceId), staffId: String(i.staffId) }));
+  if (clean.length === 0 || clean.length !== items.length || !date) return [];
+  return getMultiAvailableSlots(clean, date, locationId);
+}
+
+/**
+ * Захиалгын формоос ноорог уншина — үйлчлүүлэгч ба админд ижил. Олон
+ * үйлчилгээтэй бол `serviceId`, `staffId` талбарууд дараалан давтагдана
+ * (i дэх үйлчилгээг i дэх мастер хийнэ).
+ */
 function readBookingForm(formData: FormData): BookingDraft {
+  const serviceIds = formData.getAll("serviceId").map(String);
+  const staffIds = formData.getAll("staffId").map(String);
+  const items = serviceIds.map((serviceId, i) => ({ serviceId, staffId: staffIds[i] ?? "" }));
   return {
-    serviceId: String(formData.get("serviceId") ?? ""),
+    serviceId: serviceIds[0] ?? "",
     packageId: String(formData.get("packageId") ?? "") || undefined,
-    staffId: String(formData.get("staffId") ?? ""),
+    staffId: staffIds[0] ?? "",
+    // Ганц үйлчилгээтэй бол ноорог өмнөх хэлбэрээрээ үлдэнэ.
+    ...(items.length > 1 && { items }),
     date: String(formData.get("date") ?? ""),
     time: String(formData.get("time") ?? ""),
     customerName: String(formData.get("customerName") ?? "").trim(),
@@ -243,24 +281,33 @@ async function validateDraft(
     return "Утасны дугаараа зөв оруулна уу.";
   }
 
-  const staff = await getStaffMember(draft.staffId);
-  if (!staff || !staff.active) return "Сонгосон мастер олдсонгүй.";
-
+  const items = draftItems(draft);
   if (draft.packageId) {
+    const staff = await getStaffMember(draft.staffId);
+    if (!staff || !staff.active) return "Сонгосон мастер олдсонгүй.";
     const pkg = await getPackage(draft.packageId);
     if (!pkg || !pkg.active) return "Сонгосон багц олдсонгүй.";
   } else {
-    const service = await getService(draft.serviceId);
-    const staffList = await getStaffForService(draft.serviceId);
-    if (!service || !staffList.some((s) => s.id === draft.staffId)) {
-      return "Сонгосон үйлчилгээ эсвэл мастер олдсонгүй.";
+    if (items.length > MAX_ITEMS) return `Нэг дор ${MAX_ITEMS} хүртэл үйлчилгээ сонгоно уу.`;
+    if (items.some((i) => !i.serviceId || !i.staffId)) {
+      return "Үйлчилгээ бүрд мастер сонгоно уу.";
+    }
+    if (new Set(items.map((i) => i.serviceId)).size !== items.length) {
+      return "Нэг үйлчилгээг давхар сонгосон байна.";
+    }
+    for (const item of items) {
+      const service = await getService(item.serviceId);
+      const staffList = await getStaffForService(item.serviceId);
+      if (!service || !staffList.some((s) => s.id === item.staffId)) {
+        return "Сонгосон үйлчилгээ эсвэл мастер олдсонгүй.";
+      }
     }
   }
 
   if (opts?.checkAvailability === false) return null;
 
   // Цагийг сервер дээр дахин шалгана: захиалагдаагүй, ажлын цагт багтсан,
-  // өнгөрөөгүй байх ёстой.
+  // өнгөрөөгүй байх ёстой. Олон үйлчилгээтэй бол бүх мастер зэрэг сул байх.
   const available = draft.packageId
     ? await getPackageAvailableSlots(
         draft.packageId,
@@ -268,12 +315,7 @@ async function validateDraft(
         draft.date,
         draft.locationId,
       )
-    : await getAvailableSlots(
-        draft.serviceId,
-        draft.staffId,
-        draft.date,
-        draft.locationId,
-      );
+    : await getMultiAvailableSlots(items, draft.date, draft.locationId);
   if (!available.includes(draft.time)) {
     return "Уучлаарай, энэ цаг боломжгүй болсон байна. Өөр цаг сонгоно уу.";
   }
@@ -291,9 +333,18 @@ export type BookState =
         date: string;
         time: string;
         code: string;
+        /** Олон үйлчилгээтэй бол үйлчилгээ бүрийн код (эхнийх нь `code`). */
+        codes: string[];
         phone: string;
       };
     };
+
+/** Шинэ захиалгад оролцох мастеруудын имэйл (давхардалгүй). */
+async function staffEmailsOf(bookings: Booking[]): Promise<string[]> {
+  const staff = await getStaff();
+  const ids = new Set(bookings.map((b) => b.staffId));
+  return staff.filter((m) => ids.has(m.id) && m.email).map((m) => m.email!);
+}
 
 export async function bookAction(
   _prev: BookState,
@@ -304,24 +355,14 @@ export async function bookAction(
   if (invalid) return { status: "error", message: invalid };
 
   // validateDraft мастер, үйлчилгээ/багцыг аль хэдийн шалгасан.
-  const staff = (await getStaffMember(draft.staffId))!;
-  const itemName = await draftItemName(draft);
+  const [itemName, staffName] = await Promise.all([
+    draftItemName(draft),
+    draftStaffNames(draft),
+  ]);
 
-  let booking;
+  let bookings: Booking[];
   try {
-    booking = await createBooking({
-      serviceId: draft.packageId ? "" : draft.serviceId,
-      packageId: draft.packageId,
-      staffId: draft.staffId,
-      date: draft.date,
-      time: draft.time,
-      customerName: draft.customerName,
-      customerPhone: draft.customerPhone,
-      note: draft.note,
-      // Ажилтны хамаарах салбар давуу эрхтэй; байхгүй бол формоос сонгосон
-      // салбар. Хоосон мөр ирж болох тул `??` биш `||` ашиглана.
-      locationId: staff.locationId || draft.locationId || undefined,
-    });
+    bookings = await placeDraftBookings(draft, "pending");
   } catch (e) {
     // Race safety net: the DB unique index rejected a slot taken microseconds ago.
     if ((e as Error).message === "SLOT_TAKEN") {
@@ -339,23 +380,29 @@ export async function bookAction(
     }
     throw e;
   }
+  const booking = bookings[0];
   revalidatePath("/admin/bookings");
+  revalidatePath("/admin/calendar");
 
-  // Notify admin(s) and the assigned staff member by email (no-ops if unset).
-  const { salonName } = await getSettings();
+  // Notify admin(s) and the assigned staff members by email (no-ops if unset).
+  const [{ salonName }, staffEmails] = await Promise.all([
+    getSettings(),
+    staffEmailsOf(bookings),
+  ]);
   await sendEmail({
-    to: notifyRecipients(staff.email),
+    to: Array.from(new Set([...notifyRecipients(), ...staffEmails])),
     subject: `Шинэ захиалга — ${itemName} (${formatDate(draft.date)} ${draft.time})`,
     html: newBookingEmail({
       salonName,
       service: itemName,
-      staff: staff.name,
+      staff: staffName,
       date: formatDate(draft.date),
       time: draft.time,
       customerName: draft.customerName,
       customerPhone: draft.customerPhone,
       note: draft.note,
       // Имэйл дэх товчоор шууд шийднэ — админ сайт руу орох шаардлагагүй.
+      // Хамт захиалсан үйлчилгээнүүд бүгд хамт баталгаажна/цуцлагдана.
       confirmUrl: bookingActionUrl(booking.id, "confirm"),
       cancelUrl: bookingActionUrl(booking.id, "cancel"),
     }),
@@ -365,10 +412,11 @@ export async function bookAction(
     status: "success",
     summary: {
       service: itemName,
-      staff: staff.name,
+      staff: staffName,
       date: draft.date,
       time: draft.time,
       code: booking.code,
+      codes: bookings.map((b) => b.code),
       phone: draft.customerPhone,
     },
   };
@@ -772,6 +820,202 @@ export async function setBookingStatusAction(formData: FormData): Promise<void> 
   const status = String(formData.get("status") ?? "") as BookingStatus;
   await updateBookingStatus(id, status);
   revalidatePath("/admin/bookings");
+  revalidatePath("/admin/calendar");
+  revalidatePath("/portal");
+}
+
+/**
+ * Хуанлийн check — тэмдэглэсэн бол баталгаажсан, авсан бол хүлээгдэж буй.
+ * Зөвхөн энэ хоёр төлөвийн хооронд сэлгэнэ: дууссан, ирээгүй, цуцлагдсан
+ * захиалгыг санамсаргүй дарж буцаахгүй.
+ */
+export async function setBookingConfirmedAction(
+  id: string,
+  confirmed: boolean,
+): Promise<void> {
+  await requireAdmin();
+  const booking = await getBooking(id);
+  if (!booking || (booking.status !== "pending" && booking.status !== "confirmed")) return;
+  await updateBookingStatus(id, confirmed ? "confirmed" : "pending");
+  revalidatePath("/admin/calendar");
+  revalidatePath("/admin/bookings");
+  revalidatePath("/portal");
+}
+
+export type EditBookingState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "success"; at: number };
+
+/**
+ * Баталгаажаагүй захиалгыг засна: үйлчилгээ, мастер (өөр хүн рүү шилжүүлэх),
+ * огноо, цаг, үйлчлүүлэгчийн мэдээлэл. Баталгаажсаныг (check-тэй) бүрэн
+ * засахгүй — зөвхөн өөр мастер руу шилжүүлж болно (`adminMoveBookingAction`).
+ * Ингэснээр үйлчлүүлэгчтэй тохирсон цагийг андуурч хөдөлгөхгүй.
+ */
+export async function adminUpdateBookingAction(
+  _prev: EditBookingState,
+  formData: FormData,
+): Promise<EditBookingState> {
+  await requireAdmin();
+  const booking = await getBooking(String(formData.get("id") ?? ""));
+  if (!booking) return { status: "error", message: "Захиалга олдсонгүй." };
+  if (booking.status !== "pending") {
+    return {
+      status: "error",
+      message: "Баталгаажсан захиалгыг засахын өмнө check-ийг нь авна уу.",
+    };
+  }
+
+  const item = String(formData.get("item") ?? "");
+  return applyBookingEdit(booking, {
+    serviceId: item.startsWith("svc:") ? item.slice(4) : "",
+    packageId: item.startsWith("pkg:") ? item.slice(4) : "",
+    staffId: String(formData.get("staffId") ?? ""),
+    date: String(formData.get("date") ?? ""),
+    time: String(formData.get("time") ?? "").slice(0, 5),
+    customerName: String(formData.get("customerName") ?? "").trim(),
+    customerPhone: String(formData.get("customerPhone") ?? "").trim(),
+    note: String(formData.get("note") ?? "").trim(),
+  });
+}
+
+/**
+ * Захиалгыг өөр мастер руу шилжүүлнэ — check-тэй (баталгаажсан) байсан ч
+ * болно, бусад талбар өөрчлөгдөхгүй. ⭐-тэй захиалгыг шилжүүлэхгүй.
+ */
+export async function adminMoveBookingAction(
+  _prev: EditBookingState,
+  formData: FormData,
+): Promise<EditBookingState> {
+  await requireAdmin();
+  const booking = await getBooking(String(formData.get("id") ?? ""));
+  if (!booking) return { status: "error", message: "Захиалга олдсонгүй." };
+  if (booking.status !== "pending" && booking.status !== "confirmed") {
+    return { status: "error", message: "Энэ захиалгыг шилжүүлэх боломжгүй." };
+  }
+  return applyBookingEdit(booking, {
+    serviceId: booking.serviceId,
+    packageId: booking.packageId ?? "",
+    staffId: String(formData.get("staffId") ?? ""),
+    date: booking.date,
+    time: booking.time,
+    customerName: booking.customerName,
+    customerPhone: booking.customerPhone,
+    note: booking.note,
+  });
+}
+
+/**
+ * ⭐ — "зөвхөн энэ мастер дээр үйлчлүүлнэ" гэсэн үйлчлүүлэгч. Одтой захиалгыг
+ * өөр мастер руу шилжүүлэхгүй. Алдаа гарвал мессежийг буцаана.
+ */
+export async function setBookingStaffLockedAction(
+  id: string,
+  locked: boolean,
+): Promise<string | null> {
+  await requireAdmin();
+  try {
+    await updateBookingStaffLocked(id, locked);
+  } catch (e) {
+    return (e as Error).message;
+  }
+  revalidatePath("/admin/calendar");
+  revalidatePath("/admin/bookings");
+  return null;
+}
+
+/**
+ * Засварыг шалгаад бичнэ — бүрэн засвар ба шилжүүлэлт хоёулаа үүгээр явна.
+ * Админ ажлын цагаас гадуур ч оруулж болно (утсаар тохирсон онцгой цаг),
+ * харин ⭐-тэй захиалгын мастерыг солих, мастерын өөр захиалгатай давхцахыг
+ * зөвшөөрөхгүй.
+ */
+async function applyBookingEdit(
+  booking: Booking,
+  fields: {
+    serviceId: string;
+    packageId: string;
+    staffId: string;
+    date: string;
+    time: string;
+    customerName: string;
+    customerPhone: string;
+    note: string;
+  },
+): Promise<EditBookingState> {
+  const { id } = booking;
+  const { serviceId, packageId, staffId, date, time, customerName, customerPhone, note } =
+    fields;
+
+  if (booking.staffLocked && staffId !== booking.staffId) {
+    const current = await getStaffMember(booking.staffId);
+    return {
+      status: "error",
+      message: `⭐ Энэ үйлчлүүлэгч зөвхөн ${current?.name ?? "одоогийн мастер"} дээр үйлчлүүлнэ. Шилжүүлэх бол эхлээд одыг авна уу.`,
+    };
+  }
+  if ((!serviceId && !packageId) || !staffId) {
+    return { status: "error", message: "Үйлчилгээ, мастерыг сонгоно уу." };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
+    return { status: "error", message: "Огноо, цагийг зөв оруулна уу." };
+  }
+  if (customerName.length < 2) return { status: "error", message: "Нэрээ оруулна уу." };
+  if (!/^[0-9\s+\-()]{6,}$/.test(customerPhone)) {
+    return { status: "error", message: "Утасны дугаараа зөв оруулна уу." };
+  }
+
+  const staff = await getStaffMember(staffId);
+  if (!staff || !staff.active) return { status: "error", message: "Мастер олдсонгүй." };
+
+  let durationMin: number;
+  if (packageId) {
+    const pkg = await getPackage(packageId);
+    if (!pkg) return { status: "error", message: "Багц олдсонгүй." };
+    durationMin = await getPackageDuration(pkg);
+  } else {
+    const service = await getService(serviceId);
+    if (!service) return { status: "error", message: "Үйлчилгээ олдсонгүй." };
+    if (staff.serviceIds.length > 0 && !staff.serviceIds.includes(serviceId)) {
+      return { status: "error", message: `${staff.name} энэ үйлчилгээг хийдэггүй.` };
+    }
+    durationMin = service.durationMin;
+  }
+
+  if (await hasBookingConflict(staffId, date, time, durationMin, id)) {
+    return {
+      status: "error",
+      message: `${staff.name} энэ хугацаанд өөр захиалгатай байна. Өөр цаг эсвэл мастер сонгоно уу.`,
+    };
+  }
+
+  try {
+    await updateBooking(id, {
+      serviceId: packageId ? "" : serviceId,
+      packageId: packageId || undefined,
+      staffId,
+      date,
+      time,
+      customerName,
+      customerPhone,
+      note,
+      locationId: staff.locationId || booking.locationId,
+    });
+  } catch (e) {
+    if ((e as Error).message === "SLOT_TAKEN") {
+      return {
+        status: "error",
+        message: `${staff.name}-д яг энэ цагт өөр захиалга бүртгэгдсэн байна.`,
+      };
+    }
+    throw e;
+  }
+
+  revalidatePath("/admin/calendar");
+  revalidatePath("/admin/bookings");
+  revalidatePath("/portal");
+  return { status: "success", at: Date.now() };
 }
 
 /**
@@ -789,11 +1033,17 @@ export async function emailBookingActionAction(formData: FormData): Promise<void
   const booking = await getBooking(parsed.id);
   if (!booking) return;
 
-  await updateBookingStatus(
-    parsed.id,
-    parsed.action === "confirm" ? "confirmed" : "cancelled",
+  // Хамт захиалсан үйлчилгээнүүд нэг айлчлал тул хамт шийдэгдэнэ. Аль
+  // хэдийн цуцлагдсан/дууссаныг хөндөхгүй.
+  const group = booking.groupId ? await getBookingGroup(booking.groupId) : [];
+  const targets = (group.length > 0 ? group : [booking]).filter(
+    (b) => b.id === booking.id || b.status === "pending" || b.status === "confirmed",
   );
+  for (const b of targets) {
+    await updateBookingStatus(b.id, parsed.action === "confirm" ? "confirmed" : "cancelled");
+  }
   revalidatePath("/admin/bookings");
+  revalidatePath("/admin/calendar");
   revalidatePath("/portal");
   revalidatePath(`/confirm/${token}`);
 }
@@ -860,23 +1110,14 @@ export async function adminCreateBookingAction(
     };
   }
 
-  const staff = (await getStaffMember(draft.staffId))!;
-  const itemName = await draftItemName(draft);
+  const [itemName, staffName] = await Promise.all([
+    draftItemName(draft),
+    draftStaffNames(draft),
+  ]);
 
-  let booking;
+  let bookings: Booking[];
   try {
-    booking = await createBooking({
-      serviceId: draft.packageId ? "" : draft.serviceId,
-      packageId: draft.packageId,
-      staffId: draft.staffId,
-      date: draft.date,
-      time: draft.time,
-      customerName: draft.customerName,
-      customerPhone: draft.customerPhone,
-      note: draft.note,
-      locationId: staff.locationId || draft.locationId || undefined,
-      status: confirmNow ? "confirmed" : "pending",
-    });
+    bookings = await placeDraftBookings(draft, confirmNow ? "confirmed" : "pending");
   } catch (e) {
     const message = (e as Error).message;
     if (message === "SLOT_TAKEN") {
@@ -890,20 +1131,23 @@ export async function adminCreateBookingAction(
     }
     throw e;
   }
+  const booking = bookings[0];
 
   revalidatePath("/admin/bookings");
+  revalidatePath("/admin/calendar");
   revalidatePath("/portal");
 
   // Мастерт нь мэдэгдэнэ. Админд илгээхгүй — өөрөө бүртгэсэн тул.
-  if (staff.email) {
+  const staffEmails = await staffEmailsOf(bookings);
+  if (staffEmails.length > 0) {
     const { salonName } = await getSettings();
     await sendEmail({
-      to: [staff.email],
+      to: staffEmails,
       subject: `Шинэ захиалга — ${itemName} (${formatDate(draft.date)} ${draft.time})`,
       html: newBookingEmail({
         salonName,
         service: itemName,
-        staff: staff.name,
+        staff: staffName,
         date: formatDate(draft.date),
         time: draft.time,
         customerName: draft.customerName,
@@ -917,8 +1161,8 @@ export async function adminCreateBookingAction(
 
   return {
     status: "success",
-    code: booking.code,
-    summary: `${itemName} · ${staff.name} · ${formatDate(draft.date)} ${draft.time}`,
+    code: bookings.map((b) => b.code).join(" · "),
+    summary: `${itemName} · ${staffName} · ${formatDate(draft.date)} ${draft.time}`,
   };
 }
 

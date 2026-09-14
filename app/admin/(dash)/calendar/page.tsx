@@ -1,5 +1,7 @@
 import Link from "next/link";
 import {
+  getBooking,
+  getBookingGroup,
   getLocations,
   getPackages,
   getServices,
@@ -16,6 +18,7 @@ import DayGrid, {
   type Column,
 } from "./day-grid";
 import RangeGrid, { type DayCell } from "./range-grid";
+import BookingSheet from "./booking-sheet";
 
 export const metadata = { title: "Хуанли" };
 
@@ -32,10 +35,15 @@ function weekdayOf(iso: string): number {
   return new Date(`${iso}T00:00:00Z`).getUTCDay();
 }
 
+/** 690 -> "11:30" */
+function minutesLabel(min: number): string {
+  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+}
+
 export default async function AdminCalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; loc?: string; view?: string }>;
+  searchParams: Promise<{ date?: string; loc?: string; view?: string; edit?: string }>;
 }) {
   const sp = await searchParams;
   const today = salonToday();
@@ -148,7 +156,8 @@ export default async function AdminCalendarPage({
   const loadPercent = capacityMin > 0 ? Math.round((bookedMin / capacityMin) * 100) : 0;
   const freeHours = Math.max(0, Math.round((capacityMin - bookedMin) / 60));
 
-  const link = (next: { date?: string; loc?: string; view?: string }) => {
+  /** Хуанлийн холбоос. `edit` өгөөгүй бол нээлттэй захиалгын хуудас хаагдана. */
+  const link = (next: { date?: string; loc?: string; view?: string; edit?: string }) => {
     const q = new URLSearchParams();
     const d = next.date ?? date;
     if (d !== today) q.set("date", d);
@@ -156,9 +165,32 @@ export default async function AdminCalendarPage({
     if (l && multiBranch) q.set("loc", l);
     const v = next.view ?? view.key;
     if (v !== "day") q.set("view", v);
+    if (next.edit) q.set("edit", next.edit);
     const s = q.toString();
     return s ? `/admin/calendar?${s}` : "/admin/calendar";
   };
+
+  // Блок дээр дарж нээсэн захиалга. Засаад өөр өдөр рүү шилжүүлсэн бол энэ
+  // өдрийн жагсаалтад байхгүй тул тусад нь уншина — хуудас хаагдчихгүй.
+  const editing = sp.edit
+    ? (rows.find((b) => b.id === sp.edit) ?? (await getBooking(sp.edit)))
+    : undefined;
+  const staffNameOf = (id: string) => staff.find((m) => m.id === id)?.name ?? "—";
+  const siblings =
+    editing?.groupId
+      ? (await getBookingGroup(editing.groupId))
+          .filter((b) => b.id !== editing.id)
+          .map((b) => {
+            const block = toBlock(b);
+            return {
+              id: b.id,
+              label: `${block.itemLabel} · ${staffNameOf(b.staffId)} · ${b.time}${
+                b.status === "cancelled" ? " (цуцлагдсан)" : ""
+              }`,
+              href: link({ date: b.date, edit: b.id }),
+            };
+          })
+      : [];
 
   // Долоо хоногийн зурвас — өчигдрөөс эхлээд 7 хоног.
   const strip = Array.from({ length: 7 }, (_, i) => shiftDay(date, i - 1));
@@ -243,9 +275,7 @@ export default async function AdminCalendarPage({
           ))}
         </div>
       )}
-
-      {/* Долоо хоногийн зурвас — өдөр хооронд хурдан үсэрнэ. Тоймд хэрэггүй,
-          тэнд өдөр бүр нүд болж харагдана. */}
+      
       <div
         className={`no-scrollbar mt-3 gap-2 overflow-x-auto pb-1 ${
           view.key === "day" ? "flex" : "hidden"
@@ -323,6 +353,7 @@ export default async function AdminCalendarPage({
           closeMin={closeMin}
           stepMin={30}
           nowMin={date === today ? salonNowMinutes() : undefined}
+          editHref={(id) => link({ edit: id })}
         />
       ) : (
         <>
@@ -332,6 +363,29 @@ export default async function AdminCalendarPage({
           </p>
         </>
       )}
+
+      {editing && (() => {
+        const block = toBlock(editing);
+        // Энэ салбарын мастерууд руу шилжүүлнэ; одоогийн мастер өөр салбарынх
+        // байсан ч жагсаалтад үлдэнэ.
+        const movable = staff.filter(
+          (m) => columnsStaff.includes(m) || m.id === editing.staffId,
+        );
+        return (
+          <BookingSheet
+            booking={editing}
+            itemLabel={block.itemLabel}
+            price={block.price}
+            endTime={minutesLabel(block.startMin + block.durationMin)}
+            staffName={staffNameOf(editing.staffId)}
+            services={services.filter((s) => s.active || s.id === editing.serviceId)}
+            packages={packages.filter((p) => p.active || p.id === editing.packageId)}
+            staff={movable}
+            siblings={siblings}
+            closeHref={link({})}
+          />
+        );
+      })()}
     </div>
   );
 }
