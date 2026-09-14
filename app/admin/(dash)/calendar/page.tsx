@@ -7,10 +7,14 @@ import {
   getStaff,
   searchBookings,
 } from "@/app/lib/db";
-import { packageTotals } from "@/app/lib/format";
+import { bookingPrice, packageTotals } from "@/app/lib/format";
 import { salonNowMinutes, salonToday } from "@/app/lib/time";
 import NewBooking from "../bookings/new-booking";
-import DayGrid, { toMinutes, type Column } from "./day-grid";
+import DayGrid, {
+  toMinutes,
+  type CalBooking,
+  type Column,
+} from "./day-grid";
 import RangeGrid, { type DayCell } from "./range-grid";
 
 export const metadata = { title: "Хуанли" };
@@ -89,24 +93,32 @@ export default async function AdminCalendarPage({
 
   const dayBookings = mine.filter((b) => b.date === date);
 
+  /** Захиалгыг хуанлийн блок болгоно (хугацаа, нэр, үнэ, төлөгдсөн дүн). */
+  const toBlock = (b: (typeof rows)[number]): CalBooking => {
+    const pkg = b.packageId ? packages.find((p) => p.id === b.packageId) : undefined;
+    const svc = services.find((s) => s.id === b.serviceId);
+    return {
+      booking: b,
+      startMin: toMinutes(b.time),
+      durationMin: minutesOf(b),
+      itemLabel: pkg ? `${pkg.name} (багц)` : (svc?.name ?? "—"),
+      // Нэмэлт төлбөрийг үнэн дээр нэмнэ — доод мөрний нийлбэр бодит болно.
+      price: bookingPrice(b, services, packages) + b.extraCharge,
+      paid: b.depositPaid,
+    };
+  };
+
   const columns: Column[] = columnsStaff.map((m) => ({
     staff: m,
-    bookings: dayBookings
-      .filter((b) => b.staffId === m.id)
-      .map((b) => {
-        const pkg = b.packageId ? packages.find((p) => p.id === b.packageId) : undefined;
-        const svc = services.find((s) => s.id === b.serviceId);
-        const durationMin = pkg
-          ? packageTotals(pkg, services).durationMin
-          : (svc?.durationMin ?? 30);
-        return {
-          booking: b,
-          startMin: toMinutes(b.time),
-          durationMin: Math.max(15, durationMin),
-          itemLabel: pkg ? `${pkg.name} (багц)` : (svc?.name ?? "—"),
-        };
-      }),
+    bookings: dayBookings.filter((b) => b.staffId === m.id).map(toBlock),
   }));
+
+  // Цуцлагдсаныг тор дээр биш, доор нь түүх болгож харуулна.
+  const cancelledToday = rows
+    .filter(
+      (b) => b.date === date && b.status === "cancelled" && staffIds.has(b.staffId),
+    )
+    .map(toBlock);
 
   // Хугацааны нүднүүд — 15/30 хоногийн тоймд ашиглана. Нэг өдрийн харагдацад
   // ч мөн эхний нүд нь тухайн өдрийн ачааллыг өгнө.
@@ -306,6 +318,7 @@ export default async function AdminCalendarPage({
       ) : view.key === "day" ? (
         <DayGrid
           columns={columns}
+          cancelled={cancelledToday}
           openMin={openMin}
           closeMin={closeMin}
           stepMin={30}

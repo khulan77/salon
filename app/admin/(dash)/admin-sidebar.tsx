@@ -67,6 +67,15 @@ export default function AdminSidebar({
           </span>
           <span className="shrink-0 text-xs text-muted">Admin</span>
         </Link>
+        <a
+          href="/"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Үйлчлүүлэгчийн сайт"
+          className="ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg"
+        >
+          🌐
+        </a>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -81,7 +90,10 @@ export default function AdminSidebar({
       {open && (
         <div className="border-b border-border bg-surface px-4 py-4 lg:hidden">
           {links}
-          <LogoutButton />
+          <div className="mt-2 border-t border-border/60 pt-2">
+            <SiteLink />
+            <LogoutButton />
+          </div>
         </div>
       )}
 
@@ -94,16 +106,32 @@ export default function AdminSidebar({
         <p className="mb-6 px-2 text-xs text-muted">Удирдлагын самбар</p>
         {links}
         <div className="mt-auto pt-6">
-          <Link
-            href="/"
-            className="mb-2 flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm text-foreground/80 hover:bg-surface-2"
-          >
-            <span>🏠</span> Вэбсайт үзэх
-          </Link>
+          <SiteLink />
           <LogoutButton />
         </div>
       </aside>
     </>
+  );
+}
+
+/**
+ * Үйлчлүүлэгчийн талын сайт руу орох товч. Шинэ цонхонд нээнэ — админ ажлаа
+ * тасалдуулахгүй, буцаад ирэхэд байсан хуудас нь хэвээр байна.
+ */
+function SiteLink() {
+  return (
+    <a
+      href="/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mb-2 flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm text-foreground/80 hover:bg-surface-2"
+    >
+      <span>🌐</span>
+      <span className="flex-1">Үйлчлүүлэгчийн сайт</span>
+      <span aria-hidden className="text-xs text-muted">
+        ↗
+      </span>
+    </a>
   );
 }
 
