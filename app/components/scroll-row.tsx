@@ -11,10 +11,7 @@ export default function ScrollRow({
   cols?: string;
 }) {
   return (
-    /*
-      pb-4 — `overflow-x: auto` нь босоо тэнхлэгийг ч тайрдаг тул доторх картын
-      зөөлөн сүүдэр тасрахгүй байх зай.
-    */
+  
     <div
       className={`no-scrollbar -mx-5 flex snap-x snap-mandatory gap-5 overflow-x-auto px-5 pb-4 sm:mx-0 sm:grid sm:gap-x-6 sm:gap-y-10 sm:overflow-visible sm:px-0 sm:pb-1 ${cols}`}
     >

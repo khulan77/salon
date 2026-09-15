@@ -3,16 +3,7 @@
 import { useOptimistic, useTransition } from "react";
 import { setBookingStaffLockedAction } from "@/app/lib/actions";
 
-/**
- * ⭐ — "зөвхөн энэ мастер дээр үйлчлүүлнэ". Захиалга бүрийн нэрний өмнө
- * байрлана, check шиг дарж асаана/унтраана:
- *   ★ өнгөтэй — тогтмол мастер, өөр мастер руу шилжүүлэхгүй
- *   ☆ өнгөгүй — энгийн
- * Дармагц шууд солигдож харагдана (optimistic), сервер араас нь шинэчилнэ.
- *
- *  size="sm" — хуанлийн блок дотор, нэрний өмнө.
- *  size="lg" — захиалгын хуудасны толгойд.
- */
+
 export default function StarToggle({
   id,
   locked,
@@ -29,7 +20,6 @@ export default function StarToggle({
     startTransition(async () => {
       setOn(!on);
       const error = await setBookingStaffLockedAction(id, !on);
-      // Амжилтгүй бол optimistic утга өөрөө буцна — шалтгааныг нь хэлнэ.
       if (error) alert(error);
     });
 
@@ -45,7 +35,7 @@ export default function StarToggle({
       disabled={pending}
       className={
         size === "sm"
-          ? // Блок жижиг тул padding + сөрөг margin-аар дарах талбайг томруулна.
+          ? 
             `pointer-events-auto relative z-10 -my-1 -ml-1 mr-0.5 inline-flex shrink-0 items-center justify-center rounded-full p-1 text-[13px] leading-none transition-colors ${
               on ? "text-amber-500" : "text-current opacity-35 hover:opacity-80"
             }`

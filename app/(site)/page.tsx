@@ -87,20 +87,6 @@ export default async function HomePage() {
                   </p>
                 </div>
               )}
-
-              {[
-                { icon: "✂️", pos: "left-0 top-8" },
-                { icon: "💅", pos: "right-2 top-0" },
-                { icon: "🧖‍♀️", pos: "-left-2 bottom-16" },
-                { icon: "💄", pos: "right-0 bottom-6" },
-              ].map((c) => (
-                <span
-                  key={c.icon}
-                  className={`absolute ${c.pos} flex h-12 w-12 items-center justify-center rounded-full bg-surface text-xl shadow-[0_10px_30px_-12px_rgba(46,39,35,0.35)] sm:h-16 sm:w-16 sm:text-2xl`}
-                >
-                  {c.icon}
-                </span>
-              ))}
             </div>
           </div>
         </div>
