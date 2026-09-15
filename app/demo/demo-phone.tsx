@@ -199,6 +199,78 @@ const adminScreens: Screen[] = [
     ),
   },
   {
+    step: "Хуанли",
+    body: (
+      <div>
+        <div className="flex text-[10px] font-medium text-foreground">
+          <span className="w-8 shrink-0" />
+          {["Сараа", "Номин", "Болор"].map((n) => (
+            <span key={n} className="flex-1 truncate border-l border-border/60 px-1.5 pb-1.5">
+              {n}
+            </span>
+          ))}
+        </div>
+        <div className="relative flex h-[13rem]">
+          <div className="relative w-8 shrink-0">
+            {[10, 12, 14, 16].map((h, i) => (
+              <span
+                key={h}
+                style={{ top: `${i * 33.3}%` }}
+                className="absolute right-1 -translate-y-1/2 text-[8px] tabular-nums text-muted"
+              >
+                {h}:00
+              </span>
+            ))}
+          </div>
+          {[
+            [
+              { top: 0, h: 12, n: "Энхжин", c: "bg-rose-100 text-rose-950", done: true },
+              { top: 25, h: 25, n: "★ Сарнай", c: "bg-sky-100 text-sky-950", ok: true },
+              { top: 58, h: 12, n: "👥 Хулан", c: "bg-amber-100 text-amber-950", ok: true },
+              { top: 75, h: 12, n: "Ариунаа", c: "bg-violet-100 text-violet-950" },
+            ],
+            [
+              { top: 0, h: 33, n: "Номуун", c: "bg-emerald-100 text-emerald-950", ok: true },
+              { top: 66, h: 34, n: "★ Дөлгөөн", c: "bg-orange-100 text-orange-950", ok: true },
+            ],
+            [
+              { top: 16, h: 17, n: "Оюука", c: "bg-fuchsia-100 text-fuchsia-950", ok: true },
+              { top: 58, h: 17, n: "👥 Хулан", c: "bg-amber-100 text-amber-950", ok: true },
+              { top: 83, h: 12, n: "Оюунаа", c: "bg-teal-100 text-teal-950" },
+            ],
+          ].map((col, ci) => (
+            <div key={ci} className="relative flex-1 border-l border-border/60">
+              {col.map((b) => (
+                <span
+                  key={b.top}
+                  style={{ top: `${b.top}%`, height: `${b.h}%` }}
+                  className={`absolute inset-x-0.5 overflow-hidden rounded-md px-1.5 py-0.5 text-[9px] font-semibold leading-tight ${b.c}`}
+                >
+                  <span className="block truncate pr-2.5">{b.n}</span>
+                  <span
+                    className={`absolute right-0.5 top-0.5 flex h-2.5 w-2.5 items-center justify-center rounded-[2px] text-[7px] ${
+                      b.done
+                        ? "bg-sky-600 text-white"
+                        : b.ok
+                          ? "bg-emerald-600 text-white"
+                          : "bg-white ring-[1.5px] ring-inset ring-rose-400"
+                    }`}
+                  >
+                    {b.done || b.ok ? "✓" : ""}
+                  </span>
+                </span>
+              ))}
+            </div>
+          ))}
+          <span className="absolute left-8 right-0 top-[45%] h-px bg-rose-500" />
+        </div>
+        <p className="mt-2 text-center text-[10px] text-muted">
+          Мастер бүр нэг багана · ✓ дарж баталгаажуулна
+        </p>
+      </div>
+    ),
+  },
+  {
     step: "Захиалгууд",
     body: (
       <div className="space-y-2.5">

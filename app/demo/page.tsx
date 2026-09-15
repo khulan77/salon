@@ -1,5 +1,6 @@
 import Link from "next/link";
 import DemoPhone from "./demo-phone";
+import CalendarPreview from "./calendar-preview";
 
 /*
   Салоны эзэнд системээ үзүүлэх танилцуулга хуудас (/demo).
@@ -27,6 +28,11 @@ const features = [
     icon: "🔔",
     title: "Шинэ захиалга — шууд мэдэгдэнэ",
     text: "Захиалга ирмэгц салоны админ болон тухайн мастерт имэйл мэдэгдэл очно. Хянах самбар дээр \"хүлээгдэж буй\" тоо шууд өснө.",
+  },
+  {
+    icon: "🗓️",
+    title: "Бүх мастер нэг хуанлид",
+    text: "Хэн хэзээ завтай вэ гэдэг нэг харцаар. Дарж баталгаажуулна, өөр мастер руу шилжүүлнэ.",
   },
   {
     icon: "⏱",
@@ -62,15 +68,29 @@ const tour = [
   { href: "/book", label: "Цаг захиалах", note: "Жинхэнэ захиалгын урсгалыг туршиж үзнэ үү" },
   { href: "/my", label: "Миний захиалга", note: "Үйлчлүүлэгч захиалгаа хараад цуцална" },
   {
-    href: "/demo/admin",
-    label: "Админ тал (үзүүлэн)",
-    note: "Захиалга баталгаажуулах, орлого харах — жишээ өгөгдөл дээр",
+    href: "/demo/admin?tab=calendar",
+    label: "Админ — Хуанли (үзүүлэн)",
+    note: "Мастер бүрийн өдрийн хуваарь, захиалга баталгаажуулах, шилжүүлэх",
   },
+  {
+    href: "/demo/admin",
+    label: "Админ — Хянах самбар (үзүүлэн)",
+    note: "Орлого, хүлээгдэж буй захиалга, салбар, сэтгэгдэл — жишээ өгөгдөл дээр",
+  },
+];
+
+const calendarPoints = [
+  { icon: "💇‍♀️", text: "Мастер бүр нэг багана — хэн хэзээ завтайг нэг харцаар" },
+  { icon: "✓", text: "Блокны буланд дараад баталгаажуулна, SMS автоматаар очно" },
+  { icon: "★", text: "Тогтмол үйлчлүүлэгчийн мастерыг түгжинэ — андуурч шилжүүлэхгүй" },
+  { icon: "👥", text: "Хоёр мастер дээр зэрэг суух үйлчлүүлэгч нэг өнгөөр харагдана" },
+  { icon: "📈", text: "15, 30 хоногийн ачааллаас сул өдрөө олж урамшуулал зарлана" },
 ];
 
 const adminTools = [
   "📊 Хянах самбар",
-  "🗓️ Захиалгууд",
+  "🗓️ Хуанли",
+  "📋 Захиалгууд",
   "💰 Орлого",
   "💳 Төлбөрүүд",
   "✨ Үйлчилгээ",
@@ -146,6 +166,44 @@ export default function DemoPage() {
         </div>
         <div className="mt-10">
           <DemoPhone />
+        </div>
+      </section>
+
+      {/* Хуанли — салоны эзний хамгийн их ашиглах дэлгэц. Дараагийн хэсэг
+          саарал дэвсгэртэй тул энд дулаан градиент — хоёр хэсэг нийлж харагдахгүй. */}
+      <section className="bg-warm">
+        <div className="mx-auto grid w-full max-w-5xl gap-10 px-5 py-14 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+          <div>
+            <p className="eyebrow">Хуанли</p>
+            <h2 className="mt-2 font-display text-2xl font-semibold text-foreground sm:text-3xl">
+              Өдрийн бүх захиалга нэг дэлгэцэд
+            </h2>
+            <p className="mt-3 max-w-md text-sm leading-6 text-muted">
+              Онлайнаар орж ирсэн ч, утсаар авсан ч бүх захиалга мастер бүрийн
+              багананд цагаараа байрлана. Цаасан дэвтэр, Excel хэрэггүй.
+            </p>
+            <ul className="mt-6 space-y-3">
+              {calendarPoints.map((p) => (
+                <li key={p.text} className="flex items-start gap-3 text-sm leading-6 text-foreground/85">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface text-xs font-semibold text-primary shadow-sm">
+                    {p.icon}
+                  </span>
+                  {p.text}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/demo/admin?tab=calendar"
+              className="mt-8 inline-block rounded-full bg-primary px-7 py-3.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-hover"
+            >
+              Хуанлийг нээж үзэх →
+            </Link>
+            <p className="mt-3 text-xs text-muted">
+              Блок дээр дарж, баталгаажуулж, шилжүүлж үзээрэй — юу ч эвдэхгүй.
+            </p>
+          </div>
+
+          <CalendarPreview />
         </div>
       </section>
 
@@ -245,6 +303,12 @@ export default function DemoPage() {
               className="rounded-full bg-primary px-7 py-3.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-hover"
             >
               Админ талыг нээж үзэх
+            </Link>
+            <Link
+              href="/demo/admin?tab=calendar"
+              className="rounded-full bg-surface px-7 py-3.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:text-primary"
+            >
+              🗓️ Хуанли руу шууд
             </Link>
           </div>
           <p className="mt-5 text-xs leading-5 text-muted">
