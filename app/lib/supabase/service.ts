@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL } from "./config";
+import { fetchWithJwtRetry } from "./fetch";
 
 const SECRET = process.env.SUPABASE_SECRET_KEY ?? "";
 
@@ -12,6 +13,7 @@ export function supabaseService() {
     );
   }
   return createClient(SUPABASE_URL, SECRET, {
+    global: { fetch: fetchWithJwtRetry },
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

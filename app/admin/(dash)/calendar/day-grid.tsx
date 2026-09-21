@@ -1,3 +1,4 @@
+import CalendarLegend from "./calendar-legend";
 import Link from "next/link";
 import type { Booking, Staff } from "@/app/lib/types";
 import { formatPrice } from "@/app/lib/format";
@@ -121,8 +122,6 @@ export default function DayGrid({
   /** Ажлын цагийн эхнээс хэдэн хувьд байх вэ — шугам, блокны байрлал. */
   const pct = (min: number) => `${(min / totalMin) * 100}%`;
   const showNow = nowMin !== undefined && nowMin >= openMin && nowMin <= closeMin;
-  // Цагийн багана + мастер бүрт 9rem — үүнээс нарийсвал хажуу тийш гүйлгэнэ.
-  const minWidth = `calc(3.5rem + ${columns.length} * 9rem)`;
 
   const all = columns.flatMap((c) => c.bookings);
   const dayTotal = all.reduce((sum, b) => sum + b.price, 0);
@@ -161,35 +160,36 @@ export default function DayGrid({
 
       <div className="no-scrollbar mt-4 overflow-x-auto">
         {/* `pb-2` — хамгийн доод цагийн шошго хагас нь доош цухуйдаг тул. */}
-        <div className="w-full pb-2" style={{ minWidth }}>
+        <div className="w-full pb-2 sm:min-w-[var(--calendar-min-width)]"
+          style={{ "--calendar-min-width": `calc(3.5rem + ${columns.length} * 9rem)` } as React.CSSProperties}>
           {/* Мастеруудын толгой */}
           <div className="flex bg-background">
-            <div className="sticky left-0 z-10 w-14 shrink-0 bg-background" />
+            <div className="sticky left-0 z-10 w-10 shrink-0 bg-background sm:w-14" />
             {columns.map((c) => {
               const total = c.bookings.reduce((sum, b) => sum + b.price, 0);
               return (
                 <div
                   key={c.staff.id}
-                  className="min-w-[9rem] flex-1 border-l border-border/60 px-3 py-2.5"
+                  className="min-w-0 flex-1 border-l border-border/60 px-0.5 py-2 sm:min-w-[9rem] sm:px-3 sm:py-2.5"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 flex-col items-center gap-1 sm:flex-row sm:gap-2">
                     {c.staff.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={c.staff.imageUrl}
                         alt={c.staff.name}
-                        className="h-8 w-8 shrink-0 rounded-full object-cover"
+                        className="h-8 w-8 max-w-full shrink-0 rounded-full object-cover"
                       />
                     ) : (
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[11px] font-semibold text-primary">
+                      <span className="flex h-8 w-8 max-w-full shrink-0 items-center justify-center rounded-full bg-primary-soft text-[11px] font-semibold text-primary">
                         {initials(c.staff.name)}
                       </span>
                     )}
-                    <p className="truncate text-sm font-medium text-foreground">
+                    <p className="w-full whitespace-normal break-all text-center text-[10px] font-medium leading-tight text-foreground sm:w-auto sm:truncate sm:text-left sm:text-sm">
                       {c.staff.name}
                     </p>
                   </div>
-                  <p className="mt-1 truncate text-[11px] text-muted">
+                  <p className="mt-1 truncate text-center text-[9px] text-muted sm:text-left sm:text-[11px]">
                     {c.bookings.length} захиалга
                     {total > 0 && (
                       <>
@@ -214,7 +214,7 @@ export default function DayGrid({
             {/* Хажуу тийш гүйлгэхэд цагийн багана байрандаа үлдэнэ — эс тэгвэл
                 утсан дээр баруун тийш гүйлгэхэд аль цаг болох нь мэдэгдэхгүй.
                 Тор шахагдсан тул зөвхөн бүтэн цагийг бичнэ. */}
-            <div className="sticky left-0 z-10 w-14 shrink-0 bg-background">
+            <div className="sticky left-0 z-10 w-10 shrink-0 bg-background sm:w-14">
               {Array.from({ length: lines + 1 }, (_, i) => {
                 const min = openMin + i * stepMin;
                 if (min % 60 !== 0 || min > openMin + totalMin) return null;
@@ -245,7 +245,7 @@ export default function DayGrid({
               return (
                 <div
                   key={c.staff.id}
-                  className="relative min-w-[9rem] flex-1 border-l border-border/60"
+                  className="relative min-w-0 flex-1 border-l border-border/60 sm:min-w-[9rem]"
                 >
                   {/* Хэвтээ шугамууд */}
                   {Array.from({ length: lines }, (_, i) => (
@@ -274,7 +274,7 @@ export default function DayGrid({
                         title={`${b.booking.customerName} · ${label(b.startMin)}–${label(endMin)} · ${b.itemLabel} · ${formatPrice(b.price)}${
                           b.booking.groupId ? " · хамт захиалсан" : ""
                         }`}
-                        className={`cal-block absolute inset-x-1 min-h-[18px] overflow-hidden rounded-lg text-left shadow-[0_1px_2px_rgba(46,39,35,0.08)] transition-transform hover:z-10 hover:scale-[1.02] ${color.block} ${
+                        className={`cal-block absolute inset-x-px sm:inset-x-1 min-h-[18px] overflow-hidden rounded-lg text-left shadow-[0_1px_2px_rgba(46,39,35,0.08)] transition-transform hover:z-10 hover:scale-[1.02] ${color.block} ${
                           status === "no_show" ? "opacity-50" : ""
                         }`}
                       >
@@ -353,7 +353,7 @@ export default function DayGrid({
             {showNow && (
               <span
                 style={{ top: pct(nowMin - openMin) }}
-                className="pointer-events-none absolute left-14 right-0 z-20 h-px bg-rose-500"
+                className="pointer-events-none absolute left-10 right-0 z-20 sm:left-14 h-px bg-rose-500"
               />
             )}
           </FitHeight>
@@ -361,34 +361,7 @@ export default function DayGrid({
       </div>
 
       {/* Төлөвийн тайлбар — өнгө нь захиалга бүрийг ялгана, тэмдэг нь төлөвийг. */}
-      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted">
-        <span className="flex items-center gap-1.5">
-          <span className="flex h-3 w-3 items-center justify-center rounded-[3px] bg-emerald-600 text-[8px] font-bold text-white">
-            ✓
-          </span>
-          Баталгаажсан
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-[3px] bg-white ring-2 ring-inset ring-rose-400" />
-          Баталгаажаагүй
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="flex h-3 items-center justify-center rounded-full bg-sky-600 px-0.5 text-[7px] font-bold tracking-[-0.15em] text-white">
-            ✓✓
-          </span>
-          Дууссан
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="text-sm leading-none text-amber-500">★</span>
-          Тогтмол мастер
-          <span className="opacity-60">(☆ дарж асаана)</span>
-        </span>
-        <span className="flex items-center gap-1.5">👥 Хамт захиалсан</span>
-        <span className="flex items-center gap-1.5">
-          <span className="line-through opacity-60">Нэр</span>
-          Ирээгүй
-        </span>
-      </div>
+      <CalendarLegend />
 
       {/* Өдрийн мөнгөн дүн — Fresha-гийн адил доод мөрөнд. */}
       <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-border/60 pt-3 text-sm">
@@ -398,7 +371,7 @@ export default function DayGrid({
             {formatPrice(dayTotal)}
           </b>
         </span>
-        <span className="flex gap-5 text-muted">
+        <span className="flex flex-wrap gap-x-5 gap-y-1 text-muted">
           <span>
             Төлөгдсөн <b className="text-emerald-700">{formatPrice(dayPaid)}</b>
           </span>

@@ -1,5 +1,6 @@
 "use client";
 
+import CalendarLegend from "@/app/admin/(dash)/calendar/calendar-legend";
 import { useCallback, useEffect, useState } from "react";
 import FitHeight from "@/app/admin/(dash)/calendar/fit-height";
 import {
@@ -452,7 +453,6 @@ function DayGrid({
   const lines = Math.ceil(totalMin / STEP_MIN);
   const pct = (min: number) => `${(min / totalMin) * 100}%`;
   const showNow = nowMin !== undefined && nowMin >= openMin && nowMin <= closeMin;
-  const minWidth = `calc(3.5rem + ${columns.length} * 9rem)`;
 
   const all = columns.flatMap((c) => c.bookings);
   const priceOf = (b: DemoBooking) => itemInfo(b.item).price;
@@ -499,21 +499,22 @@ function DayGrid({
       )}
 
       <div className="no-scrollbar mt-4 overflow-x-auto">
-        <div className="w-full pb-2" style={{ minWidth }}>
+        <div className="w-full pb-2 sm:min-w-[var(--calendar-min-width)]"
+          style={{ "--calendar-min-width": `calc(3.5rem + ${columns.length} * 9rem)` } as React.CSSProperties}>
           {/* Мастеруудын толгой */}
           <div className="flex bg-background">
-            <div className="sticky left-0 z-10 w-14 shrink-0 bg-background" />
+            <div className="sticky left-0 z-10 w-10 shrink-0 bg-background sm:w-14" />
             {columns.map((c) => {
               const total = c.bookings.reduce((sum, b) => sum + priceOf(b), 0);
               return (
-                <div key={c.id} className="min-w-[9rem] flex-1 border-l border-border/60 px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[11px] font-semibold text-primary">
+                <div key={c.id} className="min-w-0 flex-1 border-l border-border/60 px-0.5 py-2 sm:min-w-[9rem] sm:px-3 sm:py-2.5">
+                  <div className="flex min-w-0 flex-col items-center gap-1 sm:flex-row sm:gap-2">
+                    <span className="flex h-8 w-8 max-w-full shrink-0 items-center justify-center rounded-full bg-primary-soft text-[11px] font-semibold text-primary">
                       {initials(c.name)}
                     </span>
-                    <p className="truncate text-sm font-medium text-foreground">{c.name}</p>
+                    <p className="w-full whitespace-normal break-all text-center text-[10px] font-medium leading-tight text-foreground sm:w-auto sm:truncate sm:text-left sm:text-sm">{c.name}</p>
                   </div>
-                  <p className="mt-1 truncate text-[11px] text-muted">
+                  <p className="mt-1 truncate text-center text-[9px] text-muted sm:text-left sm:text-[11px]">
                     {c.bookings.length} захиалга
                     {total > 0 && (
                       <>
@@ -529,7 +530,7 @@ function DayGrid({
 
           <FitHeight className="relative flex" minHeight={totalMin * MIN_PX_PER_MIN} reserve={112}>
             {/* Цагийн багана — хажуу тийш гүйлгэхэд байрандаа үлдэнэ */}
-            <div className="sticky left-0 z-10 w-14 shrink-0 bg-background">
+            <div className="sticky left-0 z-10 w-10 shrink-0 bg-background sm:w-14">
               {Array.from({ length: lines + 1 }, (_, i) => {
                 const min = openMin + i * STEP_MIN;
                 if (min % 60 !== 0 || min > openMin + totalMin) return null;
@@ -556,7 +557,7 @@ function DayGrid({
             {columns.map((c) => {
               const colors = colorsFor(c.bookings);
               return (
-                <div key={c.id} className="relative min-w-[9rem] flex-1 border-l border-border/60">
+                <div key={c.id} className="relative min-w-0 flex-1 border-l border-border/60 sm:min-w-[9rem]">
                   {Array.from({ length: lines }, (_, i) => (
                     <span
                       key={i}
@@ -581,7 +582,7 @@ function DayGrid({
                         title={`${b.name} · ${hhmm(b.start)}–${hhmm(end)} · ${info.label} · ${money(info.price)}${
                           b.groupId ? " · хамт захиалсан" : ""
                         }`}
-                        className={`cal-block absolute inset-x-1 min-h-[18px] overflow-hidden rounded-lg text-left shadow-[0_1px_2px_rgba(46,39,35,0.08)] transition-transform hover:z-10 hover:scale-[1.02] ${color.block} ${
+                        className={`cal-block absolute inset-x-px sm:inset-x-1 min-h-[18px] overflow-hidden rounded-lg text-left shadow-[0_1px_2px_rgba(46,39,35,0.08)] transition-transform hover:z-10 hover:scale-[1.02] ${color.block} ${
                           b.status === "no_show" ? "opacity-50" : ""
                         } ${b.fresh ? "animate-fade-up ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
                       >
@@ -656,7 +657,7 @@ function DayGrid({
             {showNow && (
               <span
                 style={{ top: pct(nowMin - openMin) }}
-                className="pointer-events-none absolute left-14 right-0 z-20 h-px bg-rose-500"
+                className="pointer-events-none absolute left-10 right-0 z-20 sm:left-14 h-px bg-rose-500"
               />
             )}
           </FitHeight>
@@ -664,31 +665,7 @@ function DayGrid({
       </div>
 
       {/* Тайлбар — өнгө нь захиалга бүрийг, тэмдэг нь төлөвийг ялгана */}
-      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted">
-        <span className="flex items-center gap-1.5">
-          <CheckBox checked small />
-          Баталгаажсан
-        </span>
-        <span className="flex items-center gap-1.5">
-          <CheckBox checked={false} small />
-          Баталгаажаагүй
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="flex h-3 items-center justify-center rounded-full bg-sky-600 px-0.5 text-[7px] font-bold tracking-[-0.15em] text-white">
-            ✓✓
-          </span>
-          Дууссан
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="text-sm leading-none text-amber-500">★</span>
-          Тогтмол мастер
-        </span>
-        <span className="flex items-center gap-1.5">👥 Хамт захиалсан</span>
-        <span className="flex items-center gap-1.5">
-          <span className="line-through opacity-60">Нэр</span>
-          Ирээгүй
-        </span>
-      </div>
+      <CalendarLegend />
 
       {/* Өдрийн мөнгөн дүн */}
       <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-border/60 pt-3 text-sm">
@@ -696,7 +673,7 @@ function DayGrid({
           Өдрийн нийт{" "}
           <b className="font-display text-lg font-semibold text-foreground">{money(dayTotal)}</b>
         </span>
-        <span className="flex gap-5 text-muted">
+        <span className="flex flex-wrap gap-x-5 gap-y-1 text-muted">
           <span>
             Төлөгдсөн <b className="text-emerald-700">{money(dayPaid)}</b>
           </span>

@@ -259,6 +259,26 @@ h1, h2, h3, h4, .font-display {
     }
   }
 
+  /* Narrow staff columns keep the customer name readable; actions remain in
+     the booking sheet, which opens by tapping the block. */
+  @container (max-width: 90px) {
+    .cal-body {
+      padding-inline: 5px 2px;
+    }
+    .cal-body > span {
+      padding-right: 0;
+    }
+    .cal-body button {
+      display: none;
+    }
+    .cal-body > span > span {
+      font-size: 10px;
+    }
+    .cal-time {
+      padding-right: 16px;
+    }
+  }
+
   /* Section eyebrow */
   .eyebrow {
     font-size: 0.75rem;
