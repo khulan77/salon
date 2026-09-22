@@ -9,5 +9,9 @@ export default async function AdminStaffPage() {
     getServices(),
     getLocations(),
   ]);
-  return <StaffManager staff={staff} services={services} locations={locations} />;
+  return (
+    <div className="px-4 pb-8 sm:px-0">
+      <StaffManager staff={staff} services={services} locations={locations} />
+    </div>
+  );
 }

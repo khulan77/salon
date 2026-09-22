@@ -276,7 +276,7 @@ h1, h2, h3, h4, .font-display {
 
   /* Narrow staff columns keep the customer name readable; actions remain in
      the booking sheet, which opens by tapping the block. */
-  @container (max-width: 90px) {
+  @container (max-width: 110px) {
     .cal-body {
       padding-inline: 5px 2px;
     }

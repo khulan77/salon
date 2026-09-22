@@ -76,10 +76,11 @@ export default async function AdminCalendarPage({
   const location =
     locations.find((l) => l.id === sp.loc) ?? (multiBranch ? locations[0] : undefined);
 
-  // Ажлын цаг: салбарынх давуу, байхгүй бол ерөнхий тохиргоо.
+  // Захиалга авах цаг салбарын тохиргоогоороо ажиллана. Харин админы өдрийн
+  // календарийг тогтмол 10:00–19:00 хүрээнд харуулна.
   const source = location ?? settings;
-  const openMin = toMinutes(source.openTime || "10:00");
-  const closeMin = Math.max(openMin + 60, toMinutes(source.closeTime || "20:00"));
+  const openMin = toMinutes("10:00");
+  const closeMin = toMinutes("19:00");
   const closed = (source.closedDays ?? []).includes(weekdayOf(date));
 
   // Салбаргүй (хөвөгч) мастер бүх салбарт харагдана.
@@ -215,7 +216,7 @@ export default async function AdminCalendarPage({
   ];
 
   return (
-    <div className="calendar-page">
+    <div className="calendar-page sm:-mx-5 lg:-mx-7">
       <div className="flex items-center justify-between gap-2 px-3 sm:px-0 lg:min-h-12">
         <div className="flex min-w-0 items-center gap-1 sm:gap-2">
           <Link
@@ -294,7 +295,7 @@ export default async function AdminCalendarPage({
       
       <div
         className={`no-scrollbar mt-3 gap-2 overflow-x-auto px-3 pb-1 sm:px-0 ${
-          view.key === "day" ? "hidden sm:flex" : "hidden"
+          view.key === "day" ? "hidden lg:flex" : "hidden"
         }`}
       >
         {strip.map((d) => {
@@ -321,7 +322,7 @@ export default async function AdminCalendarPage({
       </div>
 
       {/* Товч тоонууд ба харагдацын сэлгэгч */}
-      <div className="mt-2 hidden flex-wrap items-center justify-between gap-3 border-y border-border/60 py-2 sm:flex">
+      <div className="mt-2 hidden flex-wrap items-center justify-between gap-3 border-y border-border/60 py-2 lg:flex">
         <div className="no-scrollbar flex min-w-0 flex-1 gap-5 overflow-x-auto sm:gap-8">
           {stats.map((s) => (
             <span key={s.label} className="flex shrink-0 items-baseline gap-1.5 text-sm">

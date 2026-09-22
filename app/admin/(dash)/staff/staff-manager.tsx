@@ -9,30 +9,6 @@ import {
 } from "@/app/lib/actions";
 import ImageField from "../image-field";
 
-function Avatar({
-  imageUrl,
-  emoji,
-  className,
-}: {
-  imageUrl?: string;
-  emoji: string;
-  className: string;
-}) {
-  if (imageUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={imageUrl} alt="" className={`${className} object-cover`} />
-    );
-  }
-  return (
-    <span
-      className={`${className} flex items-center justify-center bg-gradient-to-br from-primary-soft to-surface-2 text-2xl`}
-    >
-      {emoji}
-    </span>
-  );
-}
-
 const WEEKDAYS = ["Ня", "Да", "Мя", "Лх", "Пү", "Ба", "Бя"];
 
 function initials(name: string): string {
@@ -69,9 +45,11 @@ export default function StaffManager({
 
   return (
     <div>
-      <div className="flex items-center justify-between border-b border-border/60 pb-4">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-foreground">Ажилтан ба хуваарь</h1>
+      <div className="flex items-start justify-between gap-4 border-b border-border/60 pb-4">
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl font-semibold text-foreground">
+            <span className="text-primary">Ажилтан</span> ба хуваарь
+          </h1>
           <p className="mt-1 text-sm text-muted">{staff.length} ажилтан · {locations.length} салбар</p>
         </div>
         <button
@@ -80,7 +58,7 @@ export default function StaffManager({
             setAdding((v) => !v);
             setEditingId(null);
           }}
-          className="rounded-xl bg-[#31533f] px-5 py-3 text-sm font-medium text-white shadow-sm hover:bg-[#294735]"
+          className="min-h-11 shrink-0 whitespace-nowrap rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-hover sm:px-5"
         >
           {adding ? "Болих" : "+ Ажилтан нэмэх"}
         </button>
@@ -109,14 +87,14 @@ export default function StaffManager({
                 {location?.name || "Бүх салбар"}
                 {location && <span className="ml-2 font-sans text-sm font-normal text-muted">{location.openTime}–{location.closeTime}</span>}
               </h2>
-              <button type="button" onClick={() => { setAdding(true); setEditingId(null); }} className="text-sm font-medium text-[#31533f]">+ Ажилтан</button>
+              <button type="button" onClick={() => { setAdding(true); setEditingId(null); }} className="shrink-0 text-sm font-medium text-primary hover:text-primary-hover">+ Ажилтан</button>
             </div>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {members.length === 0 && (
           <button
             type="button"
             onClick={() => { setAdding(true); setEditingId(null); }}
-            className="min-h-28 rounded-2xl border border-dashed border-border bg-surface/40 text-sm text-muted hover:border-[#31533f] hover:text-[#31533f] md:col-span-2 xl:col-span-3"
+            className="min-h-28 rounded-2xl border border-dashed border-border bg-surface/40 text-sm text-muted hover:border-primary hover:text-primary md:col-span-2 xl:col-span-3"
           >
             + Энэ салбарт ажилтан нэмэх
           </button>
@@ -143,7 +121,7 @@ export default function StaffManager({
             <article key={m.id} className="rounded-2xl border border-border bg-surface p-4">
               <div className="flex items-center gap-3">
                 <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full">
-                  {m.imageUrl ? <Avatar imageUrl={m.imageUrl} emoji={m.emoji} className="h-11 w-11" /> : <span style={{ backgroundColor: avatarColor(m.id) }} className="flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold text-white">{initials(m.name)}</span>}
+                  <span style={{ backgroundColor: avatarColor(m.id) }} className="flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold text-white">{initials(m.name)}</span>
                 </div>
                 <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
@@ -221,6 +199,12 @@ function StaffFields({
   submitLabel: string;
   onCancel?: () => void;
 }) {
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>(
+    member?.serviceIds ?? [],
+  );
+  const allServicesSelected =
+    services.length > 0 && selectedServiceIds.length === services.length;
+
   return (
     <form action={action} className="mt-4 grid gap-4 sm:grid-cols-2">
       {member && <input type="hidden" name="id" value={member.id} />}
@@ -230,14 +214,6 @@ function StaffFields({
       </div>
       <L label="Нэр">
         <input name="name" required defaultValue={member?.name} className="field" />
-      </L>
-      <L label="Мэргэжил / албан тушаал">
-        <input
-          name="title"
-          defaultValue={member?.title}
-          placeholder="Ахлах стилист"
-          className="field"
-        />
       </L>
       <L label="Салбар">
         {locations.length === 0 ? (
@@ -265,14 +241,6 @@ function StaffFields({
           rows={2}
           defaultValue={member?.bio}
           className="field resize-none"
-        />
-      </L>
-      <L label="Эможи (зураг байхгүй үед)">
-        <input
-          name="emoji"
-          defaultValue={member?.emoji ?? "💇‍♀️"}
-          maxLength={4}
-          className="field"
         />
       </L>
       <label className="flex items-center gap-2 self-end pb-3 text-sm text-foreground">
@@ -321,10 +289,20 @@ function StaffFields({
       </fieldset>
 
       <fieldset className="sm:col-span-2">
-        <legend className="mb-2 text-sm font-medium text-foreground">
-          Хийх үйлчилгээ{" "}
-          <span className="font-normal text-muted">(хоосон = бүх үйлчилгээ)</span>
-        </legend>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <legend className="text-sm font-medium text-foreground">Хийх үйлчилгээ</legend>
+          <button
+            type="button"
+            onClick={() => setSelectedServiceIds(services.map((service) => service.id))}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+              allServicesSelected
+                ? "border-primary bg-primary text-white"
+                : "border-border bg-surface text-primary hover:border-primary"
+            }`}
+          >
+            Бүх үйлчилгээ
+          </button>
+        </div>
         <div className="grid gap-2 sm:grid-cols-2">
           {services.map((s) => (
             <label
@@ -335,7 +313,14 @@ function StaffFields({
                 type="checkbox"
                 name="serviceIds"
                 value={s.id}
-                defaultChecked={member?.serviceIds.includes(s.id)}
+                checked={selectedServiceIds.includes(s.id)}
+                onChange={(event) => {
+                  setSelectedServiceIds((current) =>
+                    event.target.checked
+                      ? [...current, s.id]
+                      : current.filter((id) => id !== s.id),
+                  );
+                }}
                 className="h-4 w-4 accent-[var(--primary)]"
               />
               <span className="text-foreground">

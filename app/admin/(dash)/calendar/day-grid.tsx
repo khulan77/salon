@@ -95,6 +95,11 @@ function initials(name: string): string {
   return (first + second).toUpperCase();
 }
 
+function staffAvatarColor(id: string): string {
+  const colors = ["#bf7588", "#69a99d", "#8d79aa", "#c59a51", "#77a1bf", "#ad8198"];
+  return colors[[...id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % colors.length];
+}
+
 export default function DayGrid({
   columns,
   cancelled,
@@ -166,12 +171,19 @@ export default function DayGrid({
         </details>
       )}
 
-      <div className="no-scrollbar mt-2 overflow-x-auto sm:mt-0">
+      <div className="no-scrollbar mt-3 overflow-x-auto overscroll-x-contain sm:mt-0">
         {/* `pb-2` — хамгийн доод цагийн шошго хагас нь доош цухуйдаг тул. */}
-        <div className="w-full pb-2 sm:min-w-[var(--calendar-min-width)]"
-          style={{ "--calendar-min-width": `calc(3.5rem + ${columns.length} * 9rem)` } as React.CSSProperties}>
+        <div
+          className="w-full min-w-[var(--calendar-min-width)] pb-2"
+          style={{
+            "--calendar-min-width":
+              columns.length <= 4
+                ? "100%"
+                : `calc(2.5rem + ${columns.length} * 7rem)`,
+          } as React.CSSProperties}
+        >
           {/* Мастеруудын толгой */}
-          <div className="sticky top-16 z-20 flex bg-surface sm:static sm:bg-background">
+          <div className="sticky top-0 z-20 flex bg-surface sm:static sm:bg-background">
             <div className="sticky left-0 z-10 w-10 shrink-0 bg-background sm:w-14" />
             {columns.map((c) => {
               const total = c.bookings.reduce((sum, b) => sum + b.price, 0);
@@ -198,34 +210,28 @@ export default function DayGrid({
                       { scroll: false },
                     );
                   }}
-                  className="min-w-0 flex-1 border-l border-border/60 px-0.5 py-2 sm:min-w-[9rem] sm:px-3 sm:py-2.5"
+                  className="min-w-0 flex-1 border-l border-border/60 px-1 py-2 sm:min-w-[9rem] sm:px-3 sm:py-2.5"
                 >
                   <div className="flex min-w-0 flex-col items-center gap-1 sm:flex-row sm:gap-2">
-                    {c.staff.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={c.staff.imageUrl}
-                        alt={c.staff.name}
-                        className="h-8 w-8 max-w-full shrink-0 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-8 w-8 max-w-full shrink-0 items-center justify-center rounded-full bg-primary-soft text-[11px] font-semibold text-primary">
-                        {initials(c.staff.name)}
-                      </span>
-                    )}
-                    <p className="w-full whitespace-normal break-all text-center text-[10px] font-medium leading-tight text-foreground sm:w-auto sm:truncate sm:text-left sm:text-sm">
+                    <span
+                      style={{ backgroundColor: staffAvatarColor(c.staff.id) }}
+                      className="flex h-8 w-8 max-w-full shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
+                    >
+                      {initials(c.staff.name)}
+                    </span>
+                    <p className="w-full truncate text-center text-[11px] font-medium leading-tight text-foreground sm:w-auto sm:text-left sm:text-sm">
                       {c.staff.name}
                     </p>
                   </div>
                   <p className="mt-1 truncate text-center text-[9px] text-muted sm:text-left sm:text-[11px]">
                     {c.bookings.length} захиалга
                     {total > 0 && (
-                      <>
+                      <span className="hidden sm:inline">
                         {" · "}
                         <b className="font-semibold text-foreground">
                           {formatPrice(total)}
                         </b>
-                      </>
+                      </span>
                     )}
                   </p>
                 </div>
@@ -237,6 +243,8 @@ export default function DayGrid({
           <FitHeight
             className="relative flex"
             minHeight={totalMin * MIN_PX_PER_MIN}
+            mobileMinHeight={totalMin * 0.8}
+            mobileReserve={0}
             reserve={72}
           >
             {/* Хажуу тийш гүйлгэхэд цагийн багана байрандаа үлдэнэ — эс тэгвэл
@@ -245,12 +253,30 @@ export default function DayGrid({
             <div className="sticky left-0 z-10 w-10 shrink-0 bg-background sm:w-14">
               {Array.from({ length: lines + 1 }, (_, i) => {
                 const min = openMin + i * stepMin;
-                if (min % 60 !== 0 || min > openMin + totalMin) return null;
+                if (min > openMin + totalMin) return null;
+                const fullHour = min % 60 === 0;
+                const edgePosition =
+                  i === 0
+                    ? "translate-y-0"
+                    : i === lines
+                      ? "-translate-y-full"
+                      : "-translate-y-1/2";
                 return (
                   <span
                     key={min}
-                    style={{ top: pct(min - openMin) }}
-                    className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-muted"
+                    style={{
+                      top:
+                        i === 0
+                          ? "8px"
+                          : i === lines
+                            ? "calc(100% - 8px)"
+                            : pct(min - openMin),
+                    }}
+                    className={`absolute right-1 z-30 ${edgePosition} tabular-nums sm:right-2 ${
+                      fullHour
+                        ? "text-[11px] text-muted"
+                        : "text-[9px] text-border sm:hidden"
+                    }`}
                   >
                     {label(min)}
                   </span>
@@ -373,8 +399,8 @@ export default function DayGrid({
                           setOverStaffId(null);
                         }}
                         style={{
-                          top: pct(b.startMin - openMin),
-                          height: pct(b.durationMin),
+                          top: `calc(${pct(b.startMin - openMin)} + 2px)`,
+                          height: `calc(${pct(b.durationMin)} - 4px)`,
                         }}
                         title={`${b.booking.customerName} · ${label(b.startMin)}–${label(endMin)} · ${b.itemLabel} · ${formatPrice(b.price)}${
                           b.booking.groupId ? " · хамт захиалсан" : ""
@@ -468,9 +494,9 @@ export default function DayGrid({
       </div>
 
       {/* Төлөвийн тайлбар — өнгө нь захиалга бүрийг ялгана, тэмдэг нь төлөвийг. */}
-      <div className="hidden sm:block"><CalendarLegend /></div>
+      <div className="hidden lg:block"><CalendarLegend /></div>
 
-      <p className="mt-2 hidden text-xs text-muted sm:block">
+      <p className="mt-2 hidden text-xs text-muted lg:block">
         Хоосон цаг дээр дарж захиалга нэмнэ. Захиалгыг чирж цаг, ажилтныг өөрчилнө.
       </p>
 
@@ -487,7 +513,7 @@ export default function DayGrid({
       )}
 
       {/* Өдрийн мөнгөн дүн — Fresha-гийн адил доод мөрөнд. */}
-      <div className="mt-3 hidden flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-border/60 pt-3 text-sm sm:flex">
+      <div className="mt-3 hidden flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-border/60 pt-3 text-sm lg:flex">
         <span className="text-muted">
           Өдрийн нийт{" "}
           <b className="font-display text-lg font-semibold text-foreground">

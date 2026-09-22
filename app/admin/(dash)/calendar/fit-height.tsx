@@ -10,11 +10,17 @@ import { useEffect, useRef, useState } from "react";
 */
 export default function FitHeight({
   minHeight,
+  mobileMinHeight,
+  mobileReserve = 0,
   reserve,
   className,
   children,
 }: {
   minHeight: number;
+  /** Mobile дээр цагийн мөрүүдийг шахахгүй байх хамгийн бага өндөр. */
+  mobileMinHeight?: number;
+  /** Mobile/tablet дээр торын доор үлдээх зай. */
+  mobileReserve?: number;
   /** Торын доор үлдээх зай — тайлбар, өдрийн нийт дүнгийн мөр. */
   reserve: number;
   className?: string;
@@ -27,8 +33,11 @@ export default function FitHeight({
     const el = ref.current;
     if (!el) return;
     const fit = () => {
-      const top = el.getBoundingClientRect().top + window.scrollY;
-      setHeight(Math.max(minHeight, Math.floor(window.innerHeight - top - reserve)));
+      const top = el.getBoundingClientRect().top;
+      const compact = window.innerWidth < 1024;
+      const floor = compact ? (mobileMinHeight ?? minHeight) : minHeight;
+      const bottomSpace = compact ? mobileReserve : reserve;
+      setHeight(Math.max(floor, Math.floor(window.innerHeight - top - bottomSpace)));
     };
     fit();
     window.addEventListener("resize", fit);
@@ -38,14 +47,18 @@ export default function FitHeight({
       window.removeEventListener("resize", fit);
       observer.disconnect();
     };
-  }, [minHeight, reserve]);
+  }, [minHeight, mobileMinHeight, mobileReserve, reserve]);
 
   return (
     <div
       ref={ref}
       className={className}
       // Хэмжихээс өмнө ойролцоо өндөр — ачаалах үед хэт үсрэхгүй.
-      style={{ height: height ?? `max(${minHeight}px, calc(100dvh - 22rem))` }}
+      style={{
+        height:
+          height ??
+          `max(${mobileMinHeight ?? minHeight}px, calc(100dvh - 22rem))`,
+      }}
     >
       {children}
     </div>

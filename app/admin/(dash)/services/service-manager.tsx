@@ -22,10 +22,10 @@ export default function ServiceManager({ services }: { services: Service[] }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-3xl font-semibold text-foreground">Үйлчилгээ</h1>
-          <p className="mt-1 text-muted">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">Үйлчилгээ</h1>
+          <p className="mt-1 text-sm leading-5 text-muted sm:text-base">
             Нийт {services.length} үйлчилгээ
             {onSaleCount > 0 && (
               <>
@@ -42,7 +42,7 @@ export default function ServiceManager({ services }: { services: Service[] }) {
             setAdding((v) => !v);
             setEditingId(null);
           }}
-          className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-hover"
+          className="min-h-11 shrink-0 whitespace-nowrap rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-hover sm:px-5"
         >
           {adding ? "Болих" : "+ Нэмэх"}
         </button>
@@ -63,7 +63,7 @@ export default function ServiceManager({ services }: { services: Service[] }) {
         </div>
       )}
 
-      <div className="mt-8 space-y-3">
+      <div className="mt-6 space-y-3 sm:mt-8">
         {services.map((s) =>
           editingId === s.id ? (
             <div key={s.id} className="rounded-2xl border border-primary bg-surface p-6">
@@ -83,7 +83,7 @@ export default function ServiceManager({ services }: { services: Service[] }) {
           ) : (
             <div
               key={s.id}
-              className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-surface p-4"
+              className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3 sm:gap-4 sm:p-4"
             >
               {s.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -98,7 +98,7 @@ export default function ServiceManager({ services }: { services: Service[] }) {
                 </span>
               )}
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                   <h3 className="truncate font-medium text-foreground">{s.name}</h3>
                   {hasSale(s) && (
                     <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">
@@ -111,7 +111,7 @@ export default function ServiceManager({ services }: { services: Service[] }) {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted">
+                <p className="truncate text-xs text-muted">
                   {s.category} ·{" "}
                   {hasSale(s) ? (
                     <>
@@ -124,14 +124,14 @@ export default function ServiceManager({ services }: { services: Service[] }) {
                   · {formatDuration(s.durationMin)}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     setEditingId(s.id);
                     setAdding(false);
                   }}
-                  className="rounded-full border border-border px-4 py-1.5 text-xs font-medium hover:border-primary hover:text-primary"
+                  className="rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:border-primary hover:text-primary sm:px-4"
                 >
                   Засах
                 </button>
@@ -144,7 +144,7 @@ export default function ServiceManager({ services }: { services: Service[] }) {
                   <input type="hidden" name="id" value={s.id} />
                   <button
                     type="submit"
-                    className="rounded-full px-4 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                    className="rounded-full px-2 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 sm:px-4"
                   >
                     Устгах
                   </button>

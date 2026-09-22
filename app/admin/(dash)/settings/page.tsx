@@ -10,8 +10,8 @@ export default async function AdminSettingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 sm:px-0">
-      <h1 className="font-display text-3xl font-semibold text-foreground">Тохиргоо</h1>
-      <p className="mt-1 text-muted">
+      <h1 className="font-display text-2xl font-semibold text-primary sm:text-3xl">Тохиргоо</h1>
+      <p className="mt-1 text-sm leading-5 text-muted sm:text-base">
         Салоны ерөнхий мэдээлэл. Хаяг, утас, ажлын цаг нь салбар бүрт хамаарах тул{" "}
         <Link href="/admin/locations" className="text-primary hover:underline">
           Салбарууд
@@ -21,7 +21,7 @@ export default async function AdminSettingsPage() {
 
       <form
         action={updateSettingsAction}
-        className="mt-8 w-full space-y-8 rounded-2xl border border-border bg-surface p-6 sm:p-8"
+        className="mt-6 w-full space-y-7 rounded-2xl border border-border bg-surface p-4 sm:mt-8 sm:space-y-8 sm:p-8"
       >
         <section>
           <h2 className="font-display text-lg font-semibold text-foreground">
@@ -138,7 +138,7 @@ export default async function AdminSettingsPage() {
 
         <button
           type="submit"
-          className="rounded-full bg-primary px-7 py-3 text-sm font-medium text-white hover:bg-primary-hover"
+          className="min-h-11 rounded-full bg-primary px-7 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-hover"
         >
           Хадгалах
         </button>

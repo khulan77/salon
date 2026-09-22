@@ -29,7 +29,7 @@ export default async function AdminServicesPage({
   ];
 
   return (
-    <div>
+    <div className="px-4 pb-8 sm:px-0">
       <div className="flex w-fit rounded-full bg-surface-2/70 p-1">
         {tabs.map((t) => {
           const on = t.key === (onPackages ? "packages" : "");
