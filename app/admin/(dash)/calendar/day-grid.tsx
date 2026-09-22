@@ -1,7 +1,12 @@
+"use client";
+
 import CalendarLegend from "./calendar-legend";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import type { Booking, Staff } from "@/app/lib/types";
 import { formatPrice } from "@/app/lib/format";
+import { adminMoveBookingAction } from "@/app/lib/actions";
 import FitHeight from "./fit-height";
 import ConfirmCheck from "./confirm-check";
 import StarToggle from "./star-toggle";
@@ -79,12 +84,6 @@ function colorsFor(bookings: CalBooking[]): Map<string, (typeof PALETTE)[number]
   return map;
 }
 
-/** "10:00" -> 600 */
-export function toMinutes(hhmm: string): number {
-  const [h, m] = hhmm.split(":").map(Number);
-  return (h || 0) * 60 + (m || 0);
-}
-
 function label(min: number): string {
   return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 }
@@ -103,11 +102,15 @@ export default function DayGrid({
   closeMin,
   stepMin,
   nowMin,
-  editHref,
+  editHrefs,
+  createHref,
 }: {
   columns: Column[];
   /** Блок дээр дарахад нээгдэх засах хуудасны холбоос. */
-  editHref: (bookingId: string) => string;
+  /** Захиалга бүрийн modal нээх холбоос. Server-ээс serializable map-аар ирнэ. */
+  editHrefs: Record<string, string>;
+  /** Хоосон цаг дарахад шинэ захиалга нээх үндсэн холбоос. */
+  createHref: string;
   /** Тухайн өдрийн цуцлагдсан захиалгууд — торыг бөглөхгүй, доор түүх болно. */
   cancelled: CalBooking[];
   openMin: number;
@@ -117,6 +120,11 @@ export default function DayGrid({
   /** Улаан "яг одоо" шугам. Өнөөдрийг харж байгаа үед л дамжуулна. */
   nowMin?: number;
 }) {
+  const router = useRouter();
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [overStaffId, setOverStaffId] = useState<string | null>(null);
+  const [moveMessage, setMoveMessage] = useState<string | null>(null);
+  const [moving, startMove] = useTransition();
   const totalMin = Math.max(60, closeMin - openMin);
   const lines = Math.ceil(totalMin / stepMin);
   /** Ажлын цагийн эхнээс хэдэн хувьд байх вэ — шугам, блокны байрлал. */
@@ -142,7 +150,7 @@ export default function DayGrid({
             {cancelled.map((b) => (
               <li key={b.booking.id}>
                 <Link
-                  href={editHref(b.booking.id)}
+                  href={editHrefs[b.booking.id]}
                   scroll={false}
                   className="flex items-center gap-3 rounded-xl bg-surface-2/50 px-3 py-2 text-xs text-muted transition-colors hover:text-foreground"
                 >
@@ -158,18 +166,38 @@ export default function DayGrid({
         </details>
       )}
 
-      <div className="no-scrollbar mt-4 overflow-x-auto">
+      <div className="no-scrollbar mt-2 overflow-x-auto sm:mt-0">
         {/* `pb-2` — хамгийн доод цагийн шошго хагас нь доош цухуйдаг тул. */}
         <div className="w-full pb-2 sm:min-w-[var(--calendar-min-width)]"
           style={{ "--calendar-min-width": `calc(3.5rem + ${columns.length} * 9rem)` } as React.CSSProperties}>
           {/* Мастеруудын толгой */}
-          <div className="flex bg-background">
+          <div className="sticky top-16 z-20 flex bg-surface sm:static sm:bg-background">
             <div className="sticky left-0 z-10 w-10 shrink-0 bg-background sm:w-14" />
             {columns.map((c) => {
               const total = c.bookings.reduce((sum, b) => sum + b.price, 0);
               return (
                 <div
                   key={c.staff.id}
+                  onClick={(event) => {
+                    if (moving || draggingId) return;
+                    const target = event.target;
+                    if (target instanceof Element && target.closest(".cal-block")) return;
+                    const bounds = event.currentTarget.getBoundingClientRect();
+                    const relativeY = Math.max(
+                      0,
+                      Math.min(bounds.height, event.clientY - bounds.top),
+                    );
+                    const rawMinute = openMin + (relativeY / bounds.height) * totalMin;
+                    const targetMinute = Math.max(
+                      openMin,
+                      Math.min(closeMin - stepMin, Math.round(rawMinute / stepMin) * stepMin),
+                    );
+                    const separator = createHref.includes("?") ? "&" : "?";
+                    router.push(
+                      `${createHref}${separator}staff=${encodeURIComponent(c.staff.id)}&time=${encodeURIComponent(label(targetMinute))}`,
+                      { scroll: false },
+                    );
+                  }}
                   className="min-w-0 flex-1 border-l border-border/60 px-0.5 py-2 sm:min-w-[9rem] sm:px-3 sm:py-2.5"
                 >
                   <div className="flex min-w-0 flex-col items-center gap-1 sm:flex-row sm:gap-2">
@@ -209,7 +237,7 @@ export default function DayGrid({
           <FitHeight
             className="relative flex"
             minHeight={totalMin * MIN_PX_PER_MIN}
-            reserve={112}
+            reserve={72}
           >
             {/* Хажуу тийш гүйлгэхэд цагийн багана байрандаа үлдэнэ — эс тэгвэл
                 утсан дээр баруун тийш гүйлгэхэд аль цаг болох нь мэдэгдэхгүй.
@@ -245,7 +273,60 @@ export default function DayGrid({
               return (
                 <div
                   key={c.staff.id}
-                  className="relative min-w-0 flex-1 border-l border-border/60 sm:min-w-[9rem]"
+                  onDragOver={(event) => {
+                    if (!draggingId) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                    setOverStaffId(c.staff.id);
+                  }}
+                  onDragLeave={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                      setOverStaffId(null);
+                    }
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const bookingId = event.dataTransfer.getData("text/plain") || draggingId;
+                    setDraggingId(null);
+                    setOverStaffId(null);
+                    if (!bookingId) return;
+                    const source = columns.flatMap((column) => column.bookings).find((block) => block.booking.id === bookingId);
+                    if (!source) return;
+                    const bounds = event.currentTarget.getBoundingClientRect();
+                    const relativeY = Math.max(0, Math.min(bounds.height, event.clientY - bounds.top));
+                    const dragOffset = Number(
+                      event.dataTransfer.getData("application/x-booking-offset"),
+                    ) || 0;
+                    const rawMinute =
+                      openMin + (relativeY / bounds.height) * totalMin - dragOffset;
+                    const snappedMinute = Math.round(rawMinute / stepMin) * stepMin;
+                    const targetMinute = Math.max(
+                      openMin,
+                      Math.min(closeMin - source.durationMin, snappedMinute),
+                    );
+                    const targetTime = label(targetMinute);
+                    if (
+                      source.booking.staffId === c.staff.id &&
+                      source.booking.time.slice(0, 5) === targetTime
+                    ) return;
+                    startMove(async () => {
+                      const data = new FormData();
+                      data.set("id", bookingId);
+                      data.set("staffId", c.staff.id);
+                      data.set("time", targetTime);
+                      const result = await adminMoveBookingAction({ status: "idle" }, data);
+                      if (result.status === "error") setMoveMessage(result.message);
+                      else {
+                        setMoveMessage(
+                          `✓ ${source.booking.customerName} → ${c.staff.name}, ${targetTime}`,
+                        );
+                        router.refresh();
+                      }
+                    });
+                  }}
+                  className={`relative min-w-0 flex-1 cursor-crosshair border-l border-border/60 transition-colors sm:min-w-[9rem] ${
+                    overStaffId === c.staff.id ? "bg-primary-soft/70 ring-2 ring-inset ring-primary/40" : ""
+                  }`}
                 >
                   {/* Хэвтээ шугамууд */}
                   {Array.from({ length: lines }, (_, i) => (
@@ -267,6 +348,30 @@ export default function DayGrid({
                     return (
                       <div
                         key={b.booking.id}
+                        draggable={
+                          !moving &&
+                          !b.booking.staffLocked &&
+                          (status === "pending" || status === "confirmed")
+                        }
+                        onDragStart={(event) => {
+                          setMoveMessage(null);
+                          setDraggingId(b.booking.id);
+                          event.dataTransfer.effectAllowed = "move";
+                          event.dataTransfer.setData("text/plain", b.booking.id);
+                          const bounds = event.currentTarget.getBoundingClientRect();
+                          const ratio = Math.max(
+                            0,
+                            Math.min(1, (event.clientY - bounds.top) / bounds.height),
+                          );
+                          event.dataTransfer.setData(
+                            "application/x-booking-offset",
+                            String(ratio * b.durationMin),
+                          );
+                        }}
+                        onDragEnd={() => {
+                          setDraggingId(null);
+                          setOverStaffId(null);
+                        }}
                         style={{
                           top: pct(b.startMin - openMin),
                           height: pct(b.durationMin),
@@ -275,6 +380,8 @@ export default function DayGrid({
                           b.booking.groupId ? " · хамт захиалсан" : ""
                         }`}
                         className={`cal-block absolute inset-x-px sm:inset-x-1 min-h-[18px] overflow-hidden rounded-lg text-left shadow-[0_1px_2px_rgba(46,39,35,0.08)] transition-transform hover:z-10 hover:scale-[1.02] ${color.block} ${
+                          !b.booking.staffLocked && (status === "pending" || status === "confirmed") ? "cursor-grab active:cursor-grabbing" : ""
+                        } ${draggingId === b.booking.id ? "z-30 opacity-50" : ""} ${
                           status === "no_show" ? "opacity-50" : ""
                         }`}
                       >
@@ -288,7 +395,7 @@ export default function DayGrid({
                             бичвэр нь дээр нь `pointer-events-none` — дарахад
                             холбоос руу нэвтэрнэ, харин од, check нь тусдаа товч. */}
                         <Link
-                          href={editHref(b.booking.id)}
+                          href={editHrefs[b.booking.id]}
                           scroll={false}
                           aria-label={`${b.booking.customerName} — засах`}
                           className="absolute inset-0"
@@ -301,7 +408,7 @@ export default function DayGrid({
                             {label(b.startMin)}–{label(endMin)}
                             {b.booking.groupId && " · 👥"}
                           </span>
-                          <span className="flex min-w-0 items-center pr-4">
+                          <span className="cal-customer flex min-w-0 items-center pr-4">
                             {/* ★ өнгөтэй — тогтмол мастер, ☆ — энгийн. */}
                             <StarToggle
                               id={b.booking.id}
@@ -361,10 +468,26 @@ export default function DayGrid({
       </div>
 
       {/* Төлөвийн тайлбар — өнгө нь захиалга бүрийг ялгана, тэмдэг нь төлөвийг. */}
-      <CalendarLegend />
+      <div className="hidden sm:block"><CalendarLegend /></div>
+
+      <p className="mt-2 hidden text-xs text-muted sm:block">
+        Хоосон цаг дээр дарж захиалга нэмнэ. Захиалгыг чирж цаг, ажилтныг өөрчилнө.
+      </p>
+
+      {moveMessage && (
+        <button
+          type="button"
+          onClick={() => setMoveMessage(null)}
+          className={`fixed bottom-5 left-1/2 z-[60] max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full px-5 py-3 text-sm font-medium shadow-lg ${
+            moveMessage.startsWith("✓") ? "bg-emerald-700 text-white" : "bg-rose-700 text-white"
+          }`}
+        >
+          {moveMessage}
+        </button>
+      )}
 
       {/* Өдрийн мөнгөн дүн — Fresha-гийн адил доод мөрөнд. */}
-      <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-border/60 pt-3 text-sm">
+      <div className="mt-3 hidden flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-border/60 pt-3 text-sm sm:flex">
         <span className="text-muted">
           Өдрийн нийт{" "}
           <b className="font-display text-lg font-semibold text-foreground">

@@ -894,12 +894,15 @@ export async function adminMoveBookingAction(
   if (booking.status !== "pending" && booking.status !== "confirmed") {
     return { status: "error", message: "Энэ захиалгыг шилжүүлэх боломжгүй." };
   }
+  // Drag-and-drop үед шинэ цаг ирнэ; энгийн мастер солих form үед хуучин
+  // цагаа хэвээр хадгална.
+  const requestedTime = String(formData.get("time") ?? "").slice(0, 5);
   return applyBookingEdit(booking, {
     serviceId: booking.serviceId,
     packageId: booking.packageId ?? "",
     staffId: String(formData.get("staffId") ?? ""),
     date: booking.date,
-    time: booking.time,
+    time: requestedTime || booking.time,
     customerName: booking.customerName,
     customerPhone: booking.customerPhone,
     note: booking.note,

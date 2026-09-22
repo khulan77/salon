@@ -7,6 +7,7 @@ import type { Booking, Service, ServicePackage, Staff } from "@/app/lib/types";
 import {
   adminMoveBookingAction,
   adminUpdateBookingAction,
+  setBookingAmountsAction,
   setBookingStatusAction,
   type EditBookingState,
 } from "@/app/lib/actions";
@@ -153,6 +154,11 @@ export default function BookingSheet({
             {shown.message}
           </p>
         )}
+
+        <ExtraChargeButton
+          bookingId={booking.id}
+          value={booking.extraCharge}
+        />
 
         {editable ? (
           <EditForm
@@ -471,5 +477,43 @@ function Detail({ label, value }: { label: string; value: string }) {
       <dt className="shrink-0 text-muted">{label}</dt>
       <dd className="min-w-0 text-right text-foreground">{value}</dd>
     </div>
+  );
+}
+
+/**
+ * Хуанлиас захиалгаа нээсэн даруйдаа нэмэлт төлбөр бүртгэнэ. Нугалдаг тул
+ * ердийн үед ганц товч л харагдаж, modal-ийг урт болгохгүй.
+ */
+function ExtraChargeButton({ bookingId, value }: { bookingId: string; value: number }) {
+  return (
+    <details className="mt-4 rounded-2xl bg-surface-2/60 p-3">
+      <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-2 text-sm font-medium text-foreground transition-colors hover:text-primary [&::-webkit-details-marker]:hidden">
+        <span>➕ Нэмэлт төлбөр</span>
+        <span className={value > 0 ? "font-semibold tabular-nums text-primary" : "text-xs text-muted"}>
+          {value > 0 ? formatPrice(value) : "Дүн оруулах"}
+        </span>
+      </summary>
+      <form action={setBookingAmountsAction} className="mt-2 flex gap-2">
+        <input type="hidden" name="id" value={bookingId} />
+        <input type="hidden" name="field" value="extra" />
+        <input
+          name="amount"
+          type="number"
+          min="0"
+          step="1000"
+          inputMode="numeric"
+          defaultValue={value || ""}
+          placeholder="Нэмэлт дүн"
+          aria-label="Нэмэлт төлбөрийн дүн"
+          className="field h-11 min-h-0 flex-1 py-2"
+        />
+        <button
+          type="submit"
+          className="shrink-0 rounded-full bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+        >
+          Хадгалах
+        </button>
+      </form>
+    </details>
   );
 }

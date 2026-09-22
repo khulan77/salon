@@ -5,15 +5,15 @@
   Warm cream backgrounds, dusty-rose accent, espresso ink.
 */
 :root {
-  --background: #faf6f1; /* warm cream */
+  --background: #fbf7f3; /* screenshot-ийн warm cream */
   --surface: #ffffff;
-  --surface-2: #f4ece4; /* sand */
+  --surface-2: #f5eee8; /* soft blush sand */
   --foreground: #2e2723; /* espresso */
   --muted: #8a7d72; /* taupe */
-  --border: #e8ddd2;
-  --primary: #b76e79; /* dusty rose */
-  --primary-hover: #a15964;
-  --primary-soft: #f3e3e3; /* rose tint */
+  --border: #e9ddd4;
+  --primary: #bd7580; /* screenshot-ийн dusty rose */
+  --primary-hover: #aa626d;
+  --primary-soft: #f4e5e5; /* rose tint */
   --accent: #c9a24b; /* soft gold */
   --ring: #d9a7ad;
 }
@@ -237,9 +237,17 @@ h1, h2, h3, h4, .font-display {
     padding: 1px 6px 1px 10px;
   }
   .cal-time,
-  .cal-item,
-  .cal-price {
+  .cal-item {
     display: none;
+  }
+  /* Үнэ нь захиалгын блокны өндрөөс үл хамааран үргэлж харагдана. */
+  .cal-price {
+    display: block;
+    position: absolute;
+    right: 5px;
+    bottom: 3px;
+    max-width: calc(100% - 12px);
+    line-height: 1;
   }
   @container (min-height: 38px) {
     .cal-body {
@@ -255,9 +263,14 @@ h1, h2, h3, h4, .font-display {
       display: block;
     }
   }
-  @container (min-height: 74px) {
+  @container (max-height: 32px) {
+    .cal-customer {
+      display: none;
+    }
     .cal-price {
-      display: block;
+      top: 50%;
+      bottom: auto;
+      transform: translateY(-50%);
     }
   }
 

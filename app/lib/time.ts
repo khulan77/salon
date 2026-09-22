@@ -46,6 +46,12 @@ export function salonNowMinutes(): number {
   return p.hour * 60 + p.minute;
 }
 
+/** "10:30" -> шөнө дунднаас хойших минут (630). Server/client-д ижил. */
+export function toMinutes(hhmm: string): number {
+  const [hour, minute] = hhmm.split(":").map(Number);
+  return (hour || 0) * 60 + (minute || 0);
+}
+
 /**
  * Салоны цагаарх огноо+цагийг дэлхийн цаг дээрх мөч (epoch ms) болгоно.
  * Ж: ("2026-07-20", "14:00") -> УБ-ын 14:00 цагт харгалзах мөч.

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Location, Service, ServicePackage, Staff } from "@/app/lib/types";
 import {
   adminCreateBookingAction,
@@ -35,6 +36,10 @@ export default function NewBooking({
   packages,
   initialDate,
   initialLocationId,
+  initialStaffId,
+  initialTime,
+  autoOpen = false,
+  closeHref,
 }: {
   services: Service[];
   staff: Staff[];
@@ -43,12 +48,22 @@ export default function NewBooking({
   /** Хуанлиас дуудахад харж буй өдөр, салбарыг урьдчилж бөглөнө. */
   initialDate?: string;
   initialLocationId?: string;
+  /** Хуанлийн нүднээс нээхэд урьдчилж сонгогдох мастер, цаг. */
+  initialStaffId?: string;
+  initialTime?: string;
+  autoOpen?: boolean;
+  /** URL-аас нээгдсэн drawer хаагдахад query-г цэвэрлэх холбоос. */
+  closeHref?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const [open, setOpen] = useState(autoOpen);
   const [state, formAction, pending] = useActionState<AdminBookState, FormData>(
     adminCreateBookingAction,
     { status: "idle" },
   );
+  // useActionState-ийн сүүлийн хариу component амьд байх хугацаанд хадгалагддаг.
+  // Drawer-ийг шинээр нээхэд өмнөх амжилтын код/алдааг дахин харуулахгүй.
+  const [hiddenState, setHiddenState] = useState<AdminBookState | null>(null);
 
   const multiBranch = locations.length > 1;
   const [locationId, setLocationId] = useState(
@@ -56,17 +71,38 @@ export default function NewBooking({
   );
   // Үйлчилгээ, багцыг нэг сонгогчид нэгтгэв: "svc:<id>" эсвэл "pkg:<id>".
   // Багцыг зөвхөн эхний мөрөнд, ганцаараа сонгож болно.
-  const [lines, setLines] = useState<Line[]>([{ item: "", staffId: "" }]);
+  const [lines, setLines] = useState<Line[]>([
+    { item: "", staffId: initialStaffId ?? "" },
+  ]);
   const [date, setDate] = useState(initialDate ?? salonToday());
-  const [time, setTime] = useState("");
+  const [time, setTime] = useState(initialTime ?? "");
   const [freeTime, setFreeTime] = useState(false);
+
+  const closeDrawer = () => {
+    setOpen(false);
+    if (closeHref) router.replace(closeHref, { scroll: false });
+  };
+
+  const openFresh = () => {
+    setHiddenState(state);
+    setLocationId(initialLocationId ?? locations[0]?.id ?? "");
+    setLines([{ item: "", staffId: initialStaffId ?? "" }]);
+    setDate(initialDate ?? salonToday());
+    setTime(initialTime ?? "");
+    setFreeTime(false);
+    setLoaded({ key: "", slots: [] });
+    setOpen(true);
+  };
 
   // Drawer нээлттэй үед арын хуанли байрандаа үлдэж, зөвхөн drawer гүйнэ.
   useEffect(() => {
     if (!open) return;
     const previous = document.body.style.overflow;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        if (closeHref) router.replace(closeHref, { scroll: false });
+      }
     };
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
@@ -74,7 +110,7 @@ export default function NewBooking({
       document.body.style.overflow = previous;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [open]);
+  }, [open, closeHref, router]);
 
   const packageId = lines[0].item.startsWith("pkg:") ? lines[0].item.slice(4) : "";
   const packageStaffId = packageId ? lines[0].staffId : "";
@@ -100,7 +136,7 @@ export default function NewBooking({
 
   const updateLine = (i: number, patch: Partial<Line>) => {
     setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
-    setTime("");
+    if (!initialTime) setTime("");
   };
 
   // Сул цагийг сонголт бүрд шинэчилнэ. Хариуг түлхүүртэй нь хамт хадгалснаар
@@ -157,20 +193,20 @@ export default function NewBooking({
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-hover"
+        onClick={openFresh}
+        className="shrink-0 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-primary-hover sm:px-5"
       >
-        + Захиалга нэмэх
+        + Захиалга
       </button>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
       <button
         type="button"
         aria-label="Захиалгын маягтыг хаах"
-        onClick={() => setOpen(false)}
+        onClick={closeDrawer}
         className="absolute inset-0 bg-foreground/20 backdrop-blur-[1px]"
       />
 
@@ -178,30 +214,36 @@ export default function NewBooking({
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-booking-title"
-        className="relative flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-surface shadow-2xl sm:max-h-none sm:max-w-xl sm:rounded-none sm:border-l sm:border-border"
+        className="relative flex h-[calc(100dvh-0.35rem)] w-full flex-col overflow-hidden rounded-t-3xl bg-surface shadow-2xl sm:h-auto sm:max-h-[88dvh] sm:max-w-3xl sm:rounded-3xl sm:border sm:border-border"
       >
-      <div className="flex items-start justify-between gap-4 border-b border-border/60 px-5 py-4 sm:px-6 sm:py-5">
+      <div className="shrink-0 border-b border-border/60 px-5 pb-4 pt-5 sm:px-6 sm:py-5">
+        <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 id="new-booking-title" className="font-display text-lg font-semibold text-foreground sm:text-xl">
-            Шинэ захиалга
+          <h2 id="new-booking-title" className="font-display text-2xl font-semibold text-foreground sm:text-xl">
+            Шинэ цаг захиалга
           </h2>
-          <p className="mt-0.5 text-xs text-muted sm:text-sm">
+          <p className="mt-0.5 hidden text-xs text-muted sm:block sm:text-sm">
             Хуанли ард харагдана. Esc дарж хааж болно.
           </p>
         </div>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          onClick={closeDrawer}
           aria-label="Хаах"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-xl leading-none text-muted transition-colors hover:text-foreground"
         >
           ×
         </button>
+        </div>
+        <div className="mt-4 flex w-fit rounded-full bg-surface-2 p-1">
+          <span className="rounded-full bg-surface px-5 py-2 text-sm font-medium text-foreground shadow-sm">Цаг захиалга</span>
+          <span className="px-5 py-2 text-sm text-muted">Чөлөө</span>
+        </div>
       </div>
 
-      <div className="overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-28 sm:px-6 sm:pb-6">
 
-      {state.status === "success" && (
+      {state !== hiddenState && state.status === "success" && (
         <div className="mt-5 rounded-2xl bg-primary-soft/60 p-5">
           <p className="text-sm text-foreground">✓ Захиалга бүртгэгдлээ — {state.summary}</p>
           <p className="mt-2 text-xs text-muted">Үйлчлүүлэгчид өгөх код</p>
@@ -210,13 +252,13 @@ export default function NewBooking({
           </p>
         </div>
       )}
-      {state.status === "error" && (
+      {state !== hiddenState && state.status === "error" && (
         <p className="mt-5 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {state.message}
         </p>
       )}
 
-      <form action={formAction} className="mt-5 grid gap-4 sm:grid-cols-2">
+      <form action={formAction} className="mt-5 grid gap-5 sm:grid-cols-2">
         {/* Мөр бүрд serviceId + staffId хос дараалан — сервер i дэхийг нь
             хооронд нь холбож уншина. Багц бол serviceId хоосон. */}
         {lines.map((l, i) => (
@@ -230,6 +272,21 @@ export default function NewBooking({
           </Fragment>
         ))}
         <input type="hidden" name="packageId" value={packageId} />
+
+        <div className="sm:col-span-2">
+          <h3 className="mb-3 text-lg font-semibold text-foreground">Үйлчлүүлэгч</h3>
+          <div className="grid gap-3 sm:grid-cols-[5rem_1fr]">
+            <button type="button" aria-label="Тогтмол үйлчлүүлэгч" className="hidden min-h-14 rounded-xl border border-border text-2xl text-muted sm:block">★</button>
+            <input name="customerName" required placeholder="Нэр" className="field !min-h-14 !rounded-xl !bg-surface" />
+            <input
+              name="customerPhone"
+              required
+              inputMode="tel"
+              placeholder="Утас"
+              className="field !min-h-14 !rounded-xl !bg-surface sm:col-span-2"
+            />
+          </div>
+        </div>
 
         {multiBranch && (
           <F label="Салбар">
@@ -269,6 +326,7 @@ export default function NewBooking({
             <Fragment key={i}>
               <F
                 label={i === 0 ? "Үйлчилгээ / багц" : `Үйлчилгээ ${i + 1}`}
+                full
                 aside={
                   i > 0 && (
                     <button
@@ -284,17 +342,22 @@ export default function NewBooking({
                   )
                 }
               >
-                <select
+                {i === 0 && lines.length === 1 ? (
+                  <div className="overflow-hidden rounded-2xl border border-border bg-surface sm:grid sm:grid-cols-2">
+                    {packages.map((p) => (
+                      <ServiceChoice key={p.id} active={line.item === `pkg:${p.id}`} onClick={() => updateLine(i, { item: `pkg:${p.id}` })} name={`${p.emoji} ${p.name}`} meta={formatPrice(p.price)} />
+                    ))}
+                    {services.map((s) => (
+                      <ServiceChoice key={s.id} active={line.item === `svc:${s.id}`} onClick={() => {
+                        const m = staff.find((x) => x.id === line.staffId);
+                        const keep = !m || m.serviceIds.length === 0 || m.serviceIds.includes(s.id);
+                        updateLine(i, { item: `svc:${s.id}`, staffId: keep ? line.staffId : "" });
+                      }} name={s.name} meta={`${formatDuration(s.durationMin)} · ${formatPrice(effectivePrice(s))}`} />
+                    ))}
+                  </div>
+                ) : <select
                   value={line.item}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    // Мастер энэ үйлчилгээг хийдэггүй бол цэвэрлэнэ.
-                    const m = staff.find((x) => x.id === line.staffId);
-                    const svc = next.startsWith("svc:") ? next.slice(4) : "";
-                    const keep =
-                      !m || !svc || m.serviceIds.length === 0 || m.serviceIds.includes(svc);
-                    updateLine(i, { item: next, staffId: keep ? line.staffId : "" });
-                  }}
+                  onChange={(e) => updateLine(i, { item: e.target.value })}
                   className="field"
                 >
                   <option value="">— сонгоно уу —</option>
@@ -317,10 +380,10 @@ export default function NewBooking({
                         </option>
                       ))}
                   </optgroup>
-                </select>
+                </select>}
               </F>
 
-              <F label="Мастер">
+              <F label={i === 0 ? "Үндсэн ажилтан" : "Мастер"} full>
                 <select
                   value={line.staffId}
                   onChange={(e) => updateLine(i, { staffId: e.target.value })}
@@ -359,7 +422,7 @@ export default function NewBooking({
           </div>
         )}
 
-        <div className="sm:col-span-2 rounded-2xl bg-primary-soft/60 px-4 py-3">
+        <div className="hidden sm:col-span-2 sm:block rounded-2xl bg-primary-soft/60 px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted">
@@ -384,7 +447,7 @@ export default function NewBooking({
           </div>
         </div>
 
-        <F label="Огноо">
+        <F label="Огноо" full>
           <input
             type="date"
             name="date"
@@ -397,7 +460,7 @@ export default function NewBooking({
           />
         </F>
 
-        <F label="Цаг">
+        <F label="Эхлэх цаг" full>
           {freeTime ? (
             <input
               type="time"
@@ -407,42 +470,19 @@ export default function NewBooking({
               className="field"
             />
           ) : (
-            <select
-              name="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              className="field"
-              disabled={!ready || loadingSlots}
-            >
-              <option value="">
-                {!ready
-                  ? "Эхлээд үйлчилгээ, мастер сонгоно уу"
-                  : loadingSlots
-                    ? "Ачаалж байна…"
-                    : slots.length === 0
-                      ? "Энэ өдөр сул цаг алга"
-                      : "— сул цаг —"}
-              </option>
-              {slots.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+            <div>
+              <input type="hidden" name="time" value={time} />
+              {!ready || loadingSlots || slots.length === 0 ? (
+                <p className="rounded-xl border border-border px-4 py-3 text-sm text-muted">
+                  {!ready ? "Эхлээд үйлчилгээ, мастер сонгоно уу" : loadingSlots ? "Ачаалж байна…" : "Энэ өдөр сул цаг алга"}
+                </p>
+              ) : (
+                <div className="grid grid-cols-4 gap-2">
+                  {slots.map((s) => <button key={s} type="button" onClick={() => setTime(s)} className={`min-h-12 rounded-xl border text-sm tabular-nums ${time === s ? "border-primary bg-primary-soft text-primary" : "border-border bg-surface text-foreground"}`}>{s}</button>)}
+                </div>
+              )}
+            </div>
           )}
-        </F>
-
-        <F label="Үйлчлүүлэгчийн нэр">
-          <input name="customerName" required placeholder="Нэр" className="field" />
-        </F>
-        <F label="Утасны дугаар">
-          <input
-            name="customerPhone"
-            required
-            inputMode="tel"
-            placeholder="9900-0000"
-            className="field"
-          />
         </F>
 
         <F label="Тэмдэглэл" full>
@@ -479,7 +519,7 @@ export default function NewBooking({
           </label>
         </div>
 
-        <div className="sticky -bottom-px z-10 -mx-5 mt-1 flex items-center justify-between gap-4 border-t border-border/70 bg-surface/95 px-5 pt-4 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:col-span-2 sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:backdrop-blur-none">
+        <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-between gap-4 border-t border-border/70 bg-surface/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:col-span-2 sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:backdrop-blur-none">
           <div className="min-w-0">
             <p className="text-[11px] text-muted">Нийт үнэ</p>
             <p className="font-semibold tabular-nums text-foreground">{formatPrice(totalPrice)}</p>
@@ -499,6 +539,18 @@ export default function NewBooking({
   );
 }
 
+function ServiceChoice({ active, onClick, name, meta }: { active: boolean; onClick: () => void; name: string; meta: string }) {
+  return (
+    <button type="button" onClick={onClick} className="flex w-full items-center gap-4 border-b border-border/70 px-4 py-4 text-left sm:border-r sm:[&:nth-child(even)]:border-r-0">
+      <span className={`h-6 w-6 shrink-0 rounded-full border-2 ${active ? "border-primary bg-primary shadow-[inset_0_0_0_5px_white]" : "border-border"}`} />
+      <span className="min-w-0">
+        <span className="block truncate text-base font-medium text-foreground">{name}</span>
+        <span className="mt-0.5 block text-sm text-muted">{meta}</span>
+      </span>
+    </button>
+  );
+}
+
 function F({
   label,
   children,
@@ -512,12 +564,12 @@ function F({
   aside?: React.ReactNode;
 }) {
   return (
-    <label className={`block ${full ? "sm:col-span-2" : ""}`}>
+    <div className={`block ${full ? "sm:col-span-2" : ""}`}>
       <span className="mb-1.5 flex items-center justify-between gap-2">
         <span className="text-sm font-medium text-foreground">{label}</span>
         {aside}
       </span>
       {children}
-    </label>
+    </div>
   );
 }

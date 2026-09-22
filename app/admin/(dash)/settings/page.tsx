@@ -9,7 +9,7 @@ export default async function AdminSettingsPage() {
   const settings = await getSettings();
 
   return (
-    <div>
+    <div className="mx-auto w-full max-w-3xl px-4 sm:px-0">
       <h1 className="font-display text-3xl font-semibold text-foreground">Тохиргоо</h1>
       <p className="mt-1 text-muted">
         Салоны ерөнхий мэдээлэл. Хаяг, утас, ажлын цаг нь салбар бүрт хамаарах тул{" "}
@@ -21,7 +21,7 @@ export default async function AdminSettingsPage() {
 
       <form
         action={updateSettingsAction}
-        className="mt-8 max-w-2xl space-y-8 rounded-2xl border border-border bg-surface p-6 sm:p-8"
+        className="mt-8 w-full space-y-8 rounded-2xl border border-border bg-surface p-6 sm:p-8"
       >
         <section>
           <h2 className="font-display text-lg font-semibold text-foreground">

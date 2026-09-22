@@ -33,6 +33,18 @@ function Avatar({
   );
 }
 
+const WEEKDAYS = ["Ня", "Да", "Мя", "Лх", "Пү", "Ба", "Бя"];
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? parts[0]?.[1] ?? "")).toUpperCase();
+}
+
+function avatarColor(id: string): string {
+  const colors = ["#bf7588", "#69a99d", "#8d79aa", "#c59a51", "#77a1bf", "#ad8198"];
+  return colors[[...id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % colors.length];
+}
+
 export default function StaffManager({
   staff,
   services,
@@ -44,15 +56,23 @@ export default function StaffManager({
 }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const locationName = (id?: string) =>
-    locations.find((l) => l.id === id)?.name || (id ? "Тодорхойгүй салбар" : "");
+  const groups = [
+    ...locations.map((location) => ({
+      location,
+      members: staff.filter((member) => member.locationId === location.id),
+    })),
+    {
+      location: undefined,
+      members: staff.filter((member) => !member.locationId),
+    },
+  ].filter((group) => group.members.length > 0 || Boolean(group.location));
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-border/60 pb-4">
         <div>
-          <h1 className="font-display text-3xl font-semibold text-foreground">Мастерууд</h1>
-          <p className="mt-1 text-muted">Нийт {staff.length} мастер.</p>
+          <h1 className="font-display text-2xl font-semibold text-foreground">Ажилтан ба хуваарь</h1>
+          <p className="mt-1 text-sm text-muted">{staff.length} ажилтан · {locations.length} салбар</p>
         </div>
         <button
           type="button"
@@ -60,9 +80,9 @@ export default function StaffManager({
             setAdding((v) => !v);
             setEditingId(null);
           }}
-          className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-hover"
+          className="rounded-xl bg-[#31533f] px-5 py-3 text-sm font-medium text-white shadow-sm hover:bg-[#294735]"
         >
-          {adding ? "Болих" : "+ Нэмэх"}
+          {adding ? "Болих" : "+ Ажилтан нэмэх"}
         </button>
       </div>
 
@@ -81,10 +101,29 @@ export default function StaffManager({
         </div>
       )}
 
-      <div className="mt-8 space-y-3">
-        {staff.map((m) =>
+      <div className="mt-7 space-y-8">
+        {groups.map(({ location, members }) => (
+          <section key={location?.id ?? "all"}>
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <h2 className="font-display text-lg font-semibold text-foreground">
+                {location?.name || "Бүх салбар"}
+                {location && <span className="ml-2 font-sans text-sm font-normal text-muted">{location.openTime}–{location.closeTime}</span>}
+              </h2>
+              <button type="button" onClick={() => { setAdding(true); setEditingId(null); }} className="text-sm font-medium text-[#31533f]">+ Ажилтан</button>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {members.length === 0 && (
+          <button
+            type="button"
+            onClick={() => { setAdding(true); setEditingId(null); }}
+            className="min-h-28 rounded-2xl border border-dashed border-border bg-surface/40 text-sm text-muted hover:border-[#31533f] hover:text-[#31533f] md:col-span-2 xl:col-span-3"
+          >
+            + Энэ салбарт ажилтан нэмэх
+          </button>
+        )}
+        {members.map((m) =>
           editingId === m.id ? (
-            <div key={m.id} className="rounded-2xl border border-primary bg-surface p-6">
+            <div key={m.id} className="rounded-2xl border border-primary bg-surface p-6 md:col-span-2 xl:col-span-3">
               <h2 className="font-display text-lg font-semibold text-foreground">
                 Засах: {m.name}
               </h2>
@@ -101,16 +140,14 @@ export default function StaffManager({
               />
             </div>
           ) : (
-            <div
-              key={m.id}
-              className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-surface p-4"
-            >
-              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full">
-                <Avatar imageUrl={m.imageUrl} emoji={m.emoji} className="h-12 w-12" />
-              </div>
-              <div className="min-w-0 flex-1">
+            <article key={m.id} className="rounded-2xl border border-border bg-surface p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full">
+                  {m.imageUrl ? <Avatar imageUrl={m.imageUrl} emoji={m.emoji} className="h-11 w-11" /> : <span style={{ backgroundColor: avatarColor(m.id) }} className="flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold text-white">{initials(m.name)}</span>}
+                </div>
+                <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <h3 className="truncate font-medium text-foreground">{m.name}</h3>
+                  <h3 className="truncate text-base font-semibold text-foreground">{m.name}</h3>
                   {!m.active && (
                     <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">
                       Идэвхгүй
@@ -118,23 +155,31 @@ export default function StaffManager({
                   )}
                 </div>
                 <p className="truncate text-xs text-muted">
-                  {m.title}
-                  {locations.length > 0 && locationName(m.locationId) && (
-                    <span className="ml-1">· 🏢 {locationName(m.locationId)}</span>
-                  )}
+                  {m.title || "Мастер"}{m.email && <span> · {m.email}</span>}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              </div>
+
+              <div className="mt-4 grid grid-cols-7 gap-1 text-center">
+                {WEEKDAYS.map((day, index) => {
+                  const closed = location?.closedDays.includes(index);
+                  return <div key={day} className="min-w-0"><span className="block text-[10px] text-muted">{day}</span><span className={`mt-1 block truncate rounded-md px-1 py-1 text-[10px] ${closed ? "bg-background text-border" : "bg-[#f1f4f1] text-[#31533f]"}`}>{closed ? "—" : location?.openTime || "10:00"}</span></div>;
+                })}
+              </div>
+
+              <div className="mt-4 flex items-center gap-4 border-t border-border/60 pt-3 text-sm">
                 <button
                   type="button"
                   onClick={() => {
                     setEditingId(m.id);
                     setAdding(false);
                   }}
-                  className="rounded-full border border-border px-4 py-1.5 text-xs font-medium hover:border-primary hover:text-primary"
+                  className="text-muted hover:text-foreground"
                 >
                   Засах
                 </button>
+                <button type="button" onClick={() => setEditingId(m.id)} className="text-muted hover:text-foreground">Чөлөө</button>
+                <button type="button" onClick={() => setEditingId(m.id)} className="text-muted hover:text-foreground">Идэвхгүй</button>
                 <form
                   action={deleteStaffAction}
                   onSubmit={(e) => {
@@ -144,15 +189,18 @@ export default function StaffManager({
                   <input type="hidden" name="id" value={m.id} />
                   <button
                     type="submit"
-                    className="rounded-full px-4 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                    className="ml-auto text-rose-600 hover:text-rose-700"
                   >
                     Устгах
                   </button>
                 </form>
               </div>
-            </div>
+            </article>
           ),
         )}
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );

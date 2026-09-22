@@ -10,13 +10,9 @@ import {
   searchBookings,
 } from "@/app/lib/db";
 import { bookingPrice, packageTotals } from "@/app/lib/format";
-import { salonNowMinutes, salonToday } from "@/app/lib/time";
+import { salonNowMinutes, salonToday, toMinutes } from "@/app/lib/time";
 import NewBooking from "../bookings/new-booking";
-import DayGrid, {
-  toMinutes,
-  type CalBooking,
-  type Column,
-} from "./day-grid";
+import DayGrid, { type CalBooking, type Column } from "./day-grid";
 import RangeGrid, { type DayCell } from "./range-grid";
 import BookingSheet from "./booking-sheet";
 
@@ -43,7 +39,15 @@ function minutesLabel(min: number): string {
 export default async function AdminCalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; loc?: string; view?: string; edit?: string }>;
+  searchParams: Promise<{
+    date?: string;
+    loc?: string;
+    view?: string;
+    edit?: string;
+    new?: string;
+    staff?: string;
+    time?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const today = salonToday();
@@ -157,7 +161,13 @@ export default async function AdminCalendarPage({
   const freeHours = Math.max(0, Math.round((capacityMin - bookedMin) / 60));
 
   /** Хуанлийн холбоос. `edit` өгөөгүй бол нээлттэй захиалгын хуудас хаагдана. */
-  const link = (next: { date?: string; loc?: string; view?: string; edit?: string }) => {
+  const link = (next: {
+    date?: string;
+    loc?: string;
+    view?: string;
+    edit?: string;
+    new?: string;
+  }) => {
     const q = new URLSearchParams();
     const d = next.date ?? date;
     if (d !== today) q.set("date", d);
@@ -166,6 +176,7 @@ export default async function AdminCalendarPage({
     const v = next.view ?? view.key;
     if (v !== "day") q.set("view", v);
     if (next.edit) q.set("edit", next.edit);
+    if (next.new) q.set("new", next.new);
     const s = q.toString();
     return s ? `/admin/calendar?${s}` : "/admin/calendar";
   };
@@ -204,14 +215,14 @@ export default async function AdminCalendarPage({
   ];
 
   return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
+    <div className="calendar-page">
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-0 lg:min-h-12">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
           <Link
             href={link({ date: today })}
-            className={`shrink-0 rounded-full px-4 py-2 text-xs font-medium transition-colors ${
+            className={`shrink-0 rounded-full border border-border px-3 py-2 text-sm font-medium transition-colors sm:px-4 sm:text-xs ${
               date === today
-                ? "bg-foreground text-background"
+                ? "bg-surface text-muted"
                 : "bg-surface-2 text-foreground hover:bg-primary-soft"
             }`}
           >
@@ -220,13 +231,13 @@ export default async function AdminCalendarPage({
           <Link
             href={link({ date: shiftDay(date, -view.days) })}
             aria-label="Өмнөх"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-muted transition-colors hover:text-primary"
+            className="flex h-9 w-7 shrink-0 items-center justify-center text-2xl text-muted transition-colors hover:text-primary sm:w-9 sm:rounded-full sm:bg-surface-2"
           >
             ‹
           </Link>
-          <h1 className="min-w-0 font-display text-lg font-semibold text-foreground sm:text-2xl">
+          <h1 className="min-w-0 whitespace-nowrap font-mono text-base font-medium text-foreground sm:font-display sm:text-2xl sm:font-semibold">
             {date.slice(8)} / {date.slice(5, 7)} / {date.slice(0, 4)}{" "}
-            <span className="text-muted">
+            <span className="hidden text-muted sm:inline">
               {view.key === "day"
                 ? WEEKDAYS[weekdayOf(date)]
                 : `— ${lastDate.slice(8)} / ${lastDate.slice(5, 7)}`}
@@ -235,7 +246,7 @@ export default async function AdminCalendarPage({
           <Link
             href={link({ date: shiftDay(date, view.days) })}
             aria-label="Дараах"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-muted transition-colors hover:text-primary"
+            className="flex h-9 w-7 shrink-0 items-center justify-center text-2xl text-muted transition-colors hover:text-primary sm:w-9 sm:rounded-full sm:bg-surface-2"
           >
             ›
           </Link>
@@ -244,17 +255,22 @@ export default async function AdminCalendarPage({
         {/* Захиалга нэмэх маягтыг захиалгын хуудастай хуваалцана — харж буй
             өдөр, салбарыг урьдчилж бөглөнө. */}
         <NewBooking
+          key={`calendar-new-${sp.new ?? "closed"}-${sp.staff ?? ""}-${sp.time ?? ""}`}
           services={services}
           staff={staff}
           locations={locations}
           packages={packages}
           initialDate={date}
           initialLocationId={location?.id}
+          initialStaffId={sp.new === "1" ? sp.staff : undefined}
+          initialTime={sp.new === "1" ? sp.time : undefined}
+          autoOpen={sp.new === "1"}
+          closeHref={link({})}
         />
       </div>
 
       {multiBranch && (
-        <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto pb-1">
+        <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto rounded-full bg-surface-2/70 px-3 py-1.5 sm:mt-2 sm:w-fit sm:rounded-full sm:bg-surface-2/70 sm:px-2 sm:py-1">
           {locations.map((l) => (
             <Link
               key={l.id}
@@ -277,8 +293,8 @@ export default async function AdminCalendarPage({
       )}
       
       <div
-        className={`no-scrollbar mt-3 gap-2 overflow-x-auto pb-1 ${
-          view.key === "day" ? "flex" : "hidden"
+        className={`no-scrollbar mt-3 gap-2 overflow-x-auto px-3 pb-1 sm:px-0 ${
+          view.key === "day" ? "hidden sm:flex" : "hidden"
         }`}
       >
         {strip.map((d) => {
@@ -305,7 +321,7 @@ export default async function AdminCalendarPage({
       </div>
 
       {/* Товч тоонууд ба харагдацын сэлгэгч */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-y border-border/60 py-3">
+      <div className="mt-2 hidden flex-wrap items-center justify-between gap-3 border-y border-border/60 py-2 sm:flex">
         <div className="no-scrollbar flex min-w-0 flex-1 gap-5 overflow-x-auto sm:gap-8">
           {stats.map((s) => (
             <span key={s.label} className="flex shrink-0 items-baseline gap-1.5 text-sm">
@@ -353,7 +369,13 @@ export default async function AdminCalendarPage({
           closeMin={closeMin}
           stepMin={30}
           nowMin={date === today ? salonNowMinutes() : undefined}
-          editHref={(id) => link({ edit: id })}
+          editHrefs={Object.fromEntries(
+            [...columns.flatMap((column) => column.bookings), ...cancelledToday].map((block) => [
+              block.booking.id,
+              link({ edit: block.booking.id }),
+            ]),
+          )}
+          createHref={link({ new: "1" })}
         />
       ) : (
         <>
