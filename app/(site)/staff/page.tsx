@@ -42,7 +42,7 @@ export default async function StaffPage() {
           className={`mt-10 grid gap-x-5 gap-y-10 sm:mt-12 sm:gap-x-6 ${
             visible.length === 1
               ? "mx-auto max-w-[17rem]"
-              : "grid-cols-2 lg:grid-cols-3"
+              : "grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-3"
           }`}
         >
           {visible.map((m) => (

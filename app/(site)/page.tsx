@@ -38,7 +38,7 @@ export default async function HomePage() {
     <div>
       {/* Hero */}
       <section className="bg-warm">
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-5 py-12 sm:py-20 lg:grid-cols-2 lg:py-28">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-9 px-5 py-10 sm:gap-10 sm:py-20 lg:grid-cols-2 lg:py-28">
           <div className="animate-fade-up">
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 text-xs font-medium text-primary">
               ✦ Улаанбаатар хотын тансаг салон
@@ -51,16 +51,16 @@ export default async function HomePage() {
               Мэргэжлийн мастерууд, тансаг орчин. Хэдхэн товшилтоор өөрт тохирсон
               цагаа онлайнаар захиалаарай.
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
+            <div className="mt-7 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
               <Link
                 href="/book"
-                className="rounded-full bg-primary px-7 py-3.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-hover"
+                className="flex min-h-12 items-center justify-center rounded-full bg-primary px-4 py-3 text-center text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-hover sm:px-7 sm:py-3.5"
               >
                 Цаг захиалах
               </Link>
               <Link
                 href="/services"
-                className="rounded-full border border-border bg-surface px-7 py-3.5 text-sm font-medium text-foreground transition-colors hover:border-ring"
+                className="flex min-h-12 items-center justify-center rounded-full border border-border bg-surface px-4 py-3 text-center text-sm font-medium text-foreground transition-colors hover:border-ring sm:px-7 sm:py-3.5"
               >
                 Үйлчилгээ үзэх
               </Link>
@@ -133,7 +133,7 @@ export default async function HomePage() {
           className={`mt-9 grid gap-x-5 gap-y-10 sm:gap-x-6 ${
             staff.length === 1
               ? "mx-auto max-w-[17rem]"
-              : "grid-cols-2 lg:grid-cols-3"
+              : "grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-3"
           }`}
         >
           {staff.map((m) => (

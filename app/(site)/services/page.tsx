@@ -40,7 +40,7 @@ export default async function ServicesPage() {
             {packages.length > 0 && (
               <a
                 href="#packages"
-                className="shrink-0 rounded-full bg-primary-soft px-4 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary hover:text-white"
+                className="flex min-h-11 shrink-0 items-center rounded-full bg-primary-soft px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary hover:text-white"
               >
                 🎁 Багц
               </a>
@@ -49,7 +49,7 @@ export default async function ServicesPage() {
               <a
                 key={cat}
                 href={`#${catId(i)}`}
-                className="shrink-0 rounded-full border border-border bg-surface px-4 py-1.5 text-xs text-foreground/80 transition-colors hover:border-primary hover:text-primary"
+                className="flex min-h-11 shrink-0 items-center rounded-full border border-border bg-surface px-4 py-2 text-xs text-foreground/80 transition-colors hover:border-primary hover:text-primary"
               >
                 {cat}
               </a>
@@ -73,7 +73,7 @@ export default async function ServicesPage() {
               </p>
             </div>
             <div className="mt-9">
-              <ScrollRow itemWidth="w-[72vw] max-w-[19rem]">
+              <ScrollRow itemWidth="w-[clamp(15rem,78vw,19rem)]">
                 {packages.map((p) => (
                   <PackageCard key={p.id} pkg={p} services={services} />
                 ))}
@@ -91,7 +91,7 @@ export default async function ServicesPage() {
                 {services.filter((s) => s.category === cat).length} үйлчилгээ
               </span>
             </div>
-            <div className="mt-8 grid grid-cols-2 gap-x-5 gap-y-10 sm:gap-x-6 lg:grid-cols-3">
+            <div className="mt-8 grid grid-cols-1 gap-x-5 gap-y-10 min-[360px]:grid-cols-2 sm:gap-x-6 lg:grid-cols-3">
               {services
                 .filter((s) => s.category === cat)
                 .map((s) => (

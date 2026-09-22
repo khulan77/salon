@@ -64,6 +64,7 @@ body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
+  min-width: 0;
 }
 
 /*
@@ -133,6 +134,7 @@ h1, h2, h3, h4, .font-display {
   /* Гар утсанд хажуу тийш гүйлгэх мөр — гүйлгэгчийг нуухад ашиглана */
   .no-scrollbar {
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;

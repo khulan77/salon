@@ -8,7 +8,12 @@ import {
   getPackageAvailableSlotsAction,
   type AdminBookState,
 } from "@/app/lib/actions";
-import { effectivePrice, formatDuration, formatPrice } from "@/app/lib/format";
+import {
+  effectivePrice,
+  formatDuration,
+  formatPrice,
+  packageTotals,
+} from "@/app/lib/format";
 import { salonToday } from "@/app/lib/time";
 import { MAX_ITEMS } from "@/app/lib/booking-items";
 
@@ -55,6 +60,21 @@ export default function NewBooking({
   const [date, setDate] = useState(initialDate ?? salonToday());
   const [time, setTime] = useState("");
   const [freeTime, setFreeTime] = useState(false);
+
+  // Drawer нээлттэй үед арын хуанли байрандаа үлдэж, зөвхөн drawer гүйнэ.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
 
   const packageId = lines[0].item.startsWith("pkg:") ? lines[0].item.slice(4) : "";
   const packageStaffId = packageId ? lines[0].staffId : "";
@@ -117,6 +137,22 @@ export default function NewBooking({
   const slots = fresh ? loaded.slots : [];
   const loadingSlots = ready && !fresh;
 
+  const selectedPackage = packages.find((p) => p.id === packageId);
+  const selectedServices = lines
+    .map((line) =>
+      line.item.startsWith("svc:")
+        ? services.find((service) => service.id === line.item.slice(4))
+        : undefined,
+    )
+    .filter((service): service is Service => Boolean(service));
+  const packageSummary = selectedPackage
+    ? packageTotals(selectedPackage, services)
+    : undefined;
+  const totalPrice = selectedPackage?.price ??
+    selectedServices.reduce((sum, service) => sum + effectivePrice(service), 0);
+  const totalDuration = packageSummary?.durationMin ??
+    selectedServices.reduce((sum, service) => sum + service.durationMin, 0);
+
   if (!open) {
     return (
       <button
@@ -130,25 +166,40 @@ export default function NewBooking({
   }
 
   return (
-    <div className="w-full rounded-2xl border border-border bg-surface p-6">
-      <div className="flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end">
+      <button
+        type="button"
+        aria-label="Захиалгын маягтыг хаах"
+        onClick={() => setOpen(false)}
+        className="absolute inset-0 bg-foreground/20 backdrop-blur-[1px]"
+      />
+
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-booking-title"
+        className="relative flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-surface shadow-2xl sm:max-h-none sm:max-w-xl sm:rounded-none sm:border-l sm:border-border"
+      >
+      <div className="flex items-start justify-between gap-4 border-b border-border/60 px-5 py-4 sm:px-6 sm:py-5">
         <div>
-          <h2 className="font-display text-lg font-semibold text-foreground">
-            Утсаар ирсэн захиалга бүртгэх
+          <h2 id="new-booking-title" className="font-display text-lg font-semibold text-foreground sm:text-xl">
+            Шинэ захиалга
           </h2>
-          <p className="mt-1 text-sm text-muted">
-            Бүртгэсний дараа гарах кодыг үйлчлүүлэгчид уншиж өгнө үү — тэр кодоор
-            захиалгаа хянах, цуцлах боломжтой.
+          <p className="mt-0.5 text-xs text-muted sm:text-sm">
+            Хуанли ард харагдана. Esc дарж хааж болно.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="rounded-full border border-border px-4 py-1.5 text-sm hover:border-ring"
+          aria-label="Хаах"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-xl leading-none text-muted transition-colors hover:text-foreground"
         >
-          Хаах
+          ×
         </button>
       </div>
+
+      <div className="overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-6">
 
       {state.status === "success" && (
         <div className="mt-5 rounded-2xl bg-primary-soft/60 p-5">
@@ -308,6 +359,31 @@ export default function NewBooking({
           </div>
         )}
 
+        <div className="sm:col-span-2 rounded-2xl bg-primary-soft/60 px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted">
+                Сонголтын дүн
+              </p>
+              <p className="mt-1 truncate text-sm text-foreground">
+                {selectedPackage
+                  ? `${selectedPackage.emoji} ${selectedPackage.name}`
+                  : selectedServices.length > 0
+                    ? selectedServices.map((service) => service.name).join(" + ")
+                    : "Үйлчилгээ сонгоогүй"}
+              </p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-lg font-semibold tabular-nums text-primary">
+                {formatPrice(totalPrice)}
+              </p>
+              {totalDuration > 0 && (
+                <p className="text-xs text-muted">{formatDuration(totalDuration)}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
         <F label="Огноо">
           <input
             type="date"
@@ -403,16 +479,22 @@ export default function NewBooking({
           </label>
         </div>
 
-        <div className="sm:col-span-2">
+        <div className="sticky -bottom-px z-10 -mx-5 mt-1 flex items-center justify-between gap-4 border-t border-border/70 bg-surface/95 px-5 pt-4 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:col-span-2 sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:backdrop-blur-none">
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted">Нийт үнэ</p>
+            <p className="font-semibold tabular-nums text-foreground">{formatPrice(totalPrice)}</p>
+          </div>
           <button
             type="submit"
-            disabled={pending}
-            className="rounded-full bg-primary px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-60"
+            disabled={pending || !ready || !time}
+            className="min-h-11 rounded-full bg-primary px-6 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
           >
             {pending ? "Бүртгэж байна…" : "Захиалга бүртгэх"}
           </button>
         </div>
       </form>
+      </div>
+      </section>
     </div>
   );
 }
